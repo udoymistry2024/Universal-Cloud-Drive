@@ -143,7 +143,6 @@ class TelegramService:
         buttons = [
             [Button.inline("👥 Manage Users", data=b"menu:users"), Button.inline("🔍 Find User by Username", data=b"prompt_search_user")],
             [Button.inline("⚙️ System Settings", data=b"menu:settings"), Button.inline("📊 System Stats", data=b"menu:stats")],
-            [Button.inline("🧹 Purge Channel & Reset DB", data=b"confirm_purge_channel")],
             [Button.inline("🔄 Refresh Menu", data=b"menu:main")]
         ]
         return text, buttons
@@ -271,6 +270,7 @@ class TelegramService:
         buttons = [
             [signup_toggle_btn],
             [Button.inline("📏 Change Default Signup Quota", data=b"menu:default_quota")],
+            [Button.inline("🧹 Purge Entire Channel & Reset DB", data=b"confirm_purge_channel")],
             [Button.inline("« Back to Main Menu", data=b"menu:main")]
         ]
         return text, buttons
@@ -896,55 +896,66 @@ class TelegramService:
             return False
 
     async def delete_file_messages_batch(self, message_ids: List[int]) -> int:
-        """Deletes multiple message IDs from Telegram channel in parallel chunks of 100."""
+        """Deletes multiple message IDs from Telegram channel in chunks, using entity resolution & individual fallback."""
         if not message_ids:
             return 0
         await self.start()
         channel_id = int(settings.TELEGRAM_CHANNEL_ID)
+
+        try:
+            entity = await self.app.get_entity(channel_id)
+        except Exception as e:
+            logger.error(f"[TG_BATCH_DELETE_ERR] Failed to resolve channel entity: {e}")
+            entity = channel_id
+
         deleted_count = 0
+        unique_ids = sorted(list(set([int(m) for m in message_ids if m and int(m) > 0])))
 
-        unique_ids = list(set([int(m) for m in message_ids if m]))
-
-        for i in range(0, len(unique_ids), 100):
-            chunk = unique_ids[i:i + 100]
+        for i in range(0, len(unique_ids), 50):
+            chunk = unique_ids[i:i + 50]
             try:
-                await self.app.delete_messages(channel_id, message_ids=chunk)
+                await self.app.delete_messages(entity, message_ids=chunk)
                 deleted_count += len(chunk)
                 logger.info(f"[TG_BATCH_DELETE] Purged chunk of {len(chunk)} messages from Telegram Channel.")
             except Exception as e:
-                logger.warning(f"[TG_BATCH_DELETE_ERR] Failed chunk deletion: {e}")
+                # If batch delete fails (e.g. contains service message or invalid ID), fall back to deleting individually
+                for m_id in chunk:
+                    try:
+                        await self.app.delete_messages(entity, message_ids=[m_id])
+                        deleted_count += 1
+                    except Exception:
+                        pass
         return deleted_count
 
     async def purge_entire_channel_and_db(self) -> dict:
         """
-        Ultimate Reset: Scans and deletes ALL file messages from private Telegram Channel
+        Ultimate Reset: Deletes ALL file messages from private Telegram Channel (scanning IDs 1..MAX)
         and completely clears files, folders, and users tables from DataForge Database.
         """
         await self.start()
-        channel_id = int(settings.TELEGRAM_CHANNEL_ID)
-
-        # 1. Collect all message IDs directly from Telegram channel
-        all_tg_msg_ids = []
-        try:
-            async for msg in self.app.iter_messages(channel_id):
-                if msg and msg.id:
-                    all_tg_msg_ids.append(msg.id)
-        except Exception as e:
-            logger.error(f"[TG_PURGE_CHANNEL_ERR] Failed to iterate messages: {e}")
-
-        # Also collect any message IDs recorded in Database
         from app.supabase_client import supabase_admin
+
+        # 1. Collect message IDs recorded in Database + scan range up to max_id + 500
+        all_tg_msg_ids = []
+        max_id = 0
         try:
             db_files = supabase_admin.table("files").select("telegram_message_id").execute()
             if db_files.data:
                 for f in db_files.data:
                     m_id = f.get("telegram_message_id")
                     if m_id:
-                        all_tg_msg_ids.append(int(m_id))
-        except Exception:
-            pass
+                        val = int(m_id)
+                        all_tg_msg_ids.append(val)
+                        if val > max_id:
+                            max_id = val
+        except Exception as e:
+            logger.error(f"[TG_PURGE_DB_READ_ERR] Could not fetch DB message IDs: {e}")
 
-        # 2. Batch purge Telegram channel messages
+        # Scan all IDs from 1 to upper_limit (at least 3000 IDs to clear any uploaded media)
+        upper_limit = max(max_id + 500, 3000)
+        all_tg_msg_ids.extend(list(range(1, upper_limit + 1)))
+
+        # 2. Batch purge Telegram channel messages using entity resolution & fallback
         deleted_tg_count = await self.delete_file_messages_batch(all_tg_msg_ids)
 
         # 3. Clear all DataForge DB tables
