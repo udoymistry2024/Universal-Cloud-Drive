@@ -314,10 +314,14 @@ async def upload_file(
                 progress_callback=tg_progress_callback
             )
         except Exception as tg_err:
-            print(f"Telegram upload failed: {tg_err}")
+            err_str = str(tg_err)
+            err_lower = err_str.lower()
+            if "channel specified is private" in err_lower or "channel invalid" in err_lower or "could not find the input entity" in err_lower:
+                err_str = "Failed to upload file: Your configured Telegram Channel ID is deleted or unlinked. Please forward 1 message from your new channel to @uclaude_drive_bot on Telegram to link your new channel!"
+            print(f"Telegram upload failed: {err_str}")
             if upload_id:
-                upload_progress_store[upload_id] = _progress({"stage": "error", "message": str(tg_err)})
-            raise HTTPException(status_code=500, detail=str(tg_err))
+                upload_progress_store[upload_id] = _progress({"stage": "error", "message": err_str})
+            raise HTTPException(status_code=500, detail=err_str)
 
         clean_folder_id = folder_id if folder_id and folder_id.strip() and folder_id != "null" else None
 
