@@ -61,50 +61,90 @@ class DatabaseResilienceManager:
             logger.error(f"[Resilience] Database health check failed: {e}")
             return False
 
-    # ─── BACKUP TO TELEGRAM ───────────────────────────────────────────
+    # ─── BACKUP TO TELEGRAM (SQL FORMAT) ──────────────────────────────
 
-    def create_backup_json(self) -> dict:
-        """Export all data from DataForge PostgreSQL to a JSON-serializable dict."""
+    def create_backup_sql(self) -> tuple:
+        """Export all data from DataForge PostgreSQL as a ready-to-execute SQL script."""
         from app.supabase_client import supabase_admin
 
-        backup = {
-            "backup_version": 2,
-            "db_provider": "dataforge_postgresql",
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "tables": {}
-        }
+        now_str = datetime.now(timezone.utc).isoformat()
+        sql_lines = [
+            "-- ============================================================",
+            "-- Universal Cloud Drive — DataForge PostgreSQL Database Backup",
+            f"-- Created At: {now_str}",
+            "-- Database Provider: DataForge PostgreSQL (u_claude_drive)",
+            "-- ============================================================\n",
+            "BEGIN;\n"
+        ]
 
-        for table_name in ["users", "folders", "files"]:
+        table_order = ["users", "folders", "files"]
+        total_rows = 0
+
+        def _format_sql_val(val):
+            if val is None:
+                return "NULL"
+            elif isinstance(val, bool):
+                return "TRUE" if val else "FALSE"
+            elif isinstance(val, (int, float)):
+                return str(val)
+            elif isinstance(val, (dict, list)):
+                s = json.dumps(val, ensure_ascii=False).replace("'", "''")
+                return f"'{s}'"
+            else:
+                s = str(val).replace("'", "''")
+                return f"'{s}'"
+
+        for table_name in table_order:
             try:
                 res = supabase_admin.table(table_name).select("*").execute()
-                backup["tables"][table_name] = res.data or []
-                logger.info(f"[Resilience] Exported {len(res.data or [])} rows from '{table_name}'")
+                rows = res.data or []
+                total_rows += len(rows)
+
+                sql_lines.append(f"-- ------------------------------------------------------------")
+                sql_lines.append(f"-- Table: {table_name} ({len(rows)} rows)")
+                sql_lines.append(f"-- ------------------------------------------------------------")
+
+                if rows:
+                    cols = list(rows[0].keys())
+                    cols_str = ", ".join(cols)
+
+                    for r in rows:
+                        vals = [_format_sql_val(r.get(c)) for c in cols]
+                        vals_str = ", ".join(vals)
+                        sql_lines.append(
+                            f"INSERT INTO {table_name} ({cols_str}) VALUES ({vals_str}) "
+                            f"ON CONFLICT (id) DO NOTHING;"
+                        )
+                sql_lines.append("")
+                logger.info(f"[Resilience] Exported {len(rows)} SQL rows for '{table_name}'")
+
             except Exception as e:
-                logger.error(f"[Resilience] Failed to export '{table_name}': {e}")
-                backup["tables"][table_name] = []
+                logger.error(f"[Resilience] Failed to export SQL for '{table_name}': {e}")
+                sql_lines.append(f"-- ERROR exporting {table_name}: {e}\n")
 
-        return backup
+        sql_lines.append("COMMIT;")
+        return "\n".join(sql_lines), total_rows
 
-    async def upload_backup_to_telegram(self, backup_data: dict) -> bool:
-        """Upload a JSON backup file to the Telegram channel."""
+    async def upload_backup_to_telegram(self, sql_content: str, total_rows: int) -> bool:
+        """Upload a .sql backup file to the Telegram channel."""
         from app.telegram_client import telegram_service
         from app.config import settings
 
-        if not backup_data or not backup_data.get("tables"):
-            logger.warning("[Resilience] Empty backup data, skipping upload.")
+        if not sql_content:
+            logger.warning("[Resilience] Empty SQL backup data, skipping upload.")
             return False
 
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S")
-        caption = f"{BACKUP_CAPTION_PREFIX}{timestamp}"
+        caption = f"{BACKUP_CAPTION_PREFIX}{timestamp}.sql"
 
         tmp_path = None
         try:
             await telegram_service.start()
             channel_id = int(settings.TELEGRAM_CHANNEL_ID)
 
-            tmp_fd, tmp_path = tempfile.mkstemp(suffix=".json", prefix="db_backup_")
+            tmp_fd, tmp_path = tempfile.mkstemp(suffix=".sql", prefix="db_backup_")
             with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
-                json.dump(backup_data, f, ensure_ascii=False, indent=None, default=str)
+                f.write(sql_content)
 
             msg = await telegram_service.app.send_file(
                 channel_id,
@@ -114,22 +154,21 @@ class DatabaseResilienceManager:
                 attributes=[],
             )
 
-            total_rows = sum(len(rows) for rows in backup_data["tables"].values())
-
             tracker = _load_backup_tracker()
             tracker.append({
                 "message_id": msg.id,
                 "timestamp": timestamp,
                 "total_rows": total_rows,
                 "caption": caption,
+                "format": "sql"
             })
             _save_backup_tracker(tracker)
 
-            logger.info(f"[Resilience] ✅ Database backup uploaded to Telegram: msg#{msg.id} ({total_rows} rows)")
+            logger.info(f"[Resilience] ✅ Database SQL backup uploaded to Telegram: msg#{msg.id} ({total_rows} rows, .sql format)")
             return True
 
         except Exception as e:
-            logger.error(f"[Resilience] ❌ Failed to upload backup to Telegram: {e}")
+            logger.error(f"[Resilience] ❌ Failed to upload SQL backup to Telegram: {e}")
             return False
         finally:
             if tmp_path and os.path.exists(tmp_path):
@@ -139,13 +178,10 @@ class DatabaseResilienceManager:
                     pass
 
     async def create_and_upload_backup(self) -> bool:
-        """Full pipeline: export from DataForge PostgreSQL → upload to Telegram."""
-        logger.info("[Resilience] Starting scheduled database backup...")
-        backup_data = self.create_backup_json()
-        if not backup_data.get("tables"):
-            logger.warning("[Resilience] Backup aborted: no data to export.")
-            return False
-        return await self.upload_backup_to_telegram(backup_data)
+        """Full pipeline: export SQL script from DataForge PostgreSQL → upload .sql file to Telegram."""
+        logger.info("[Resilience] Starting scheduled database SQL backup...")
+        sql_content, total_rows = self.create_backup_sql()
+        return await self.upload_backup_to_telegram(sql_content, total_rows)
 
     # ─── MAIN HEALTH CHECK LOOP ──────────────────────────────────────
 

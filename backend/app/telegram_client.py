@@ -270,7 +270,6 @@ class TelegramService:
         buttons = [
             [signup_toggle_btn],
             [Button.inline("📏 Change Default Signup Quota", data=b"menu:default_quota")],
-            [Button.inline("🧹 Purge Entire Channel & Reset DB", data=b"confirm_purge_channel")],
             [Button.inline("« Back to Main Menu", data=b"menu:main")]
         ]
         return text, buttons
@@ -322,23 +321,6 @@ class TelegramService:
         buttons = [
             [Button.inline("🔄 Refresh Stats", data=b"menu:stats")],
             [Button.inline("« Back to Main Menu", data=b"menu:main")]
-        ]
-        return text, buttons
-
-    async def _get_confirm_purge_channel_payload(self):
-        channel_id = settings.TELEGRAM_CHANNEL_ID
-        text = (
-            f"💥 **ULTIMATE SYSTEM PURGE & RESET WARNING** 💥\n\n"
-            f"• **Telegram Channel ID:** `{channel_id}`\n\n"
-            f"⚠️ **Are you sure you want to PERMANENTLY PURGE everything?**\n"
-            f"1. ALL file messages in Telegram Channel will be **purged**.\n"
-            f"2. ALL database tables (`files`, `folders`, `users`) will be **cleared**.\n"
-            f"3. System will be reset to a 100% **clean fresh state**.\n\n"
-            f"🔴 **THIS ACTION IS ABSOLUTELY IRREVERSIBLE!**"
-        )
-        buttons = [
-            [Button.inline("🔥 YES, PURGE ENTIRE CHANNEL & DB NOW", data=b"do_purge_channel")],
-            [Button.inline("❌ Cancel & Go Back to Main Menu", data=b"menu:main")]
         ]
         return text, buttons
 
@@ -495,10 +477,6 @@ class TelegramService:
             txt, btn = await self._get_settings_payload()
             await event.reply(txt, buttons=btn, parse_mode="md")
 
-        elif cmd in ["/purgechannel", "/wipechannel", "/resetall", "/purge"]:
-            txt, btn = await self._get_confirm_purge_channel_payload()
-            await event.reply(txt, buttons=btn, parse_mode="md")
-
     # ─── EVENT LISTENER 2: INLINE BUTTON CLICK CALLBACKS ─────────────────
 
     async def _handle_admin_callbacks(self, event):
@@ -548,30 +526,6 @@ class TelegramService:
         elif data == "menu:stats":
             txt, btn = await self._get_stats_payload()
             await self._safe_edit(event, txt, btn)
-
-        elif data == "confirm_purge_channel":
-            txt, btn = await self._get_confirm_purge_channel_payload()
-            await self._safe_edit(event, txt, btn)
-
-        elif data == "do_purge_channel":
-            await self._safe_edit(event, "⏳ **ULTIMATE PURGE IN PROGRESS...**\n\nScanning Telegram channel messages (IDs 1 to 50,000) and resetting DataForge database. Please wait...", None)
-
-            summary = await self.purge_entire_channel_and_db()
-
-            files_c = summary.get('db_deleted', {}).get('files', 0)
-            folders_c = summary.get('db_deleted', {}).get('folders', 0)
-            users_c = summary.get('db_deleted', {}).get('users', 0)
-
-            report = (
-                f"🧹 **ULTIMATE SYSTEM PURGE COMPLETE!**\n\n"
-                f"• **Telegram Channel Messages Purged:** `{summary.get('tg_messages_deleted', 0)}` messages\n"
-                f"• **DataForge Files Table:** `{files_c}` records cleared\n"
-                f"• **DataForge Folders Table:** `{folders_c}` records cleared\n"
-                f"• **DataForge Users Table:** `{users_c}` records cleared\n\n"
-                f"✅ **Telegram channel & DataForge database are 100% clean & reset.**"
-            )
-            buttons = [[Button.inline("« Back to Main Menu", data=b"menu:main")]]
-            await self._safe_edit(event, report, buttons)
 
         elif data.startswith("user:"):
             username = data.split("user:")[1]
@@ -937,53 +891,6 @@ class TelegramService:
                 logger.info(f"[TG_BATCH_DELETE] Purged {del_c} messages from Telegram Channel chunk {i}..{i+100}.")
 
         return deleted_count
-
-    async def purge_entire_channel_and_db(self) -> dict:
-        """
-        Ultimate Reset: Deletes ALL file messages from private Telegram Channel (scanning IDs 1..MAX)
-        and completely clears files, folders, and users tables from DataForge Database.
-        """
-        await self.start()
-        from app.supabase_client import supabase_admin
-
-        # 1. Collect message IDs recorded in Database + scan range up to max_id + 500
-        all_tg_msg_ids = []
-        max_id = 0
-        try:
-            db_files = supabase_admin.table("files").select("telegram_message_id").execute()
-            if db_files.data:
-                for f in db_files.data:
-                    m_id = f.get("telegram_message_id")
-                    if m_id:
-                        val = int(m_id)
-                        all_tg_msg_ids.append(val)
-                        if val > max_id:
-                            max_id = val
-        except Exception as e:
-            logger.error(f"[TG_PURGE_DB_READ_ERR] Could not fetch DB message IDs: {e}")
-
-        # Scan all IDs from 1 to upper_limit (up to 50,000 IDs to clear all old uploaded media)
-        upper_limit = max(max_id + 5000, 50000)
-        all_tg_msg_ids.extend(list(range(1, upper_limit + 1)))
-
-        # 2. Batch purge Telegram channel messages using entity resolution & fallback
-        deleted_tg_count = await self.delete_file_messages_batch(all_tg_msg_ids)
-
-        # 3. Clear all DataForge DB tables
-        deleted_db = {}
-        for tbl in ["files", "folders", "users"]:
-            try:
-                res = supabase_admin.table(tbl).delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
-                deleted_db[tbl] = len(res.data or [])
-            except Exception as db_err:
-                logger.error(f"[TG_PURGE_DB_ERR] Failed to clear table {tbl}: {db_err}")
-                deleted_db[tbl] = 0
-
-        return {
-            "tg_messages_deleted": deleted_tg_count,
-            "tg_total_found": len(set(all_tg_msg_ids)),
-            "db_deleted": deleted_db
-        }
 
     async def download_file_stream(self, message_id: int) -> AsyncGenerator[bytes, None]:
 

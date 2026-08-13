@@ -1,15 +1,21 @@
 import axios from 'axios'
 
 const getDynamicApiUrl = () => {
-  const envUrl = import.meta.env.VITE_API_URL
-  if (envUrl && envUrl.trim() !== '') return envUrl.trim()
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    if (window.location.port === '5173') {
-      const protocol = window.location.protocol || 'http:'
-      return `${protocol}//${window.location.hostname}:8000`
+  // Prioritize current browser location so mobile devices on local Wi-Fi (e.g. 192.168.0.X) connect seamlessly
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const hostname = window.location.hostname
+    const protocol = window.location.protocol || 'http:'
+    const port = window.location.port
+
+    // Dev server running on 5173 or 3000 -> point to backend on port 8000 of the same IP/hostname
+    if (port === '5173' || port === '3000' || !port) {
+      return `${protocol}//${hostname}:8000`
     }
-    return window.location.origin
   }
+
+  const envUrl = import.meta.env.VITE_API_URL
+  if (envUrl && envUrl.trim() !== '' && !envUrl.includes('localhost')) return envUrl.trim()
+
   return 'http://localhost:8000'
 }
 
