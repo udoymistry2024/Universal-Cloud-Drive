@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    @apply bg-slate-900 text-ucd-text select-none;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
+
+  /* Allow text selection inside editable input and textarea elements */
+  input, textarea {
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+  }
+
+  ::selection {
+    background: transparent;
+    color: inherit;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-ucd-accent/15 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-ucd-accent/30;
+}
+
+/* Hide scrollbars for clean breadcrumb horizontal touch-scrolling */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

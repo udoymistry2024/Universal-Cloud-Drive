@@ -1,0 +1,128 @@
+import React, { useState } from 'react'
+import { CheckCircle2, AlertCircle, Loader2, X, ChevronDown, ChevronUp, UploadCloud, Clock, Ban, ShieldCheck, Server, RotateCcw } from 'lucide-react'
+import { useDrive } from '../context/DriveContext'
+import { formatBytes, formatSpeed, formatETA } from '../lib/fileUtils'
+
+export const UploadProgress = () => {
+  const { uploadQueue = [], removeUploadFromQueue, retryUpload } = useDrive() || {}
+  const [isMinimized, setIsMinimized] = useState(false)
+  const safeQueue = Array.isArray(uploadQueue) ? uploadQueue : []
+
+  if (safeQueue.length === 0) return null
+
+  const activeCount = safeQueue.filter(u => u?.status === 'uploading' || u?.status === 'queued').length
+
+  return (
+    <div className="fixed bottom-4 right-4 w-84 md:w-96 bg-ucd-surface rounded-2xl shadow-2xl border border-ucd-border overflow-hidden z-50 animate-in slide-in-from-bottom-4 duration-300">
+      {/* Header */}
+      <div className="bg-ucd-bg border-b border-ucd-accent/20 p-3 flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <UploadCloud className="w-4 h-4 text-ucd-accent animate-pulse" />
+          <span className="font-semibold text-xs md:text-sm text-ucd-accent">
+            {activeCount > 0 ? `Uploading ${activeCount} item${activeCount > 1 ? 's' : ''}` : `Uploads finished (${safeQueue.length})`}
+          </span>
+        </div>
+        <button onClick={() => setIsMinimized(v => !v)} className="p-1 hover:bg-ucd-surface rounded text-ucd-dim hover:text-ucd-accent transition-colors">
+          {isMinimized ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        </button>
+      </div>
+
+      {!isMinimized && (
+        <div className="max-h-64 overflow-y-auto divide-y divide-ucd-border">
+          {safeQueue.map((item) => {
+            if (!item || !item.id) return null
+            return (
+              <div key={item.id} className="p-3 flex items-center justify-between">
+                <div className="min-w-0 flex-1 pr-3">
+                  <p className="text-xs font-medium text-ucd-text truncate max-w-[200px] md:max-w-[260px]">{item.fileName || 'Uploading file...'}</p>
+
+                  {item.status === 'uploading' && (
+                    <>
+                      <div className="mt-1 flex items-center space-x-1.5 text-[10px] font-medium">
+                        {item.stage === 'cloud' ? (
+                          <span className="text-sky-400 flex items-center space-x-1">
+                            <ShieldCheck className="w-3 h-3 animate-pulse text-sky-400" />
+                            <span>Encrypting and securing to cloud drive...</span>
+                          </span>
+                        ) : (
+                          <span className="text-ucd-accent flex items-center space-x-1">
+                            <Server className="w-3 h-3 animate-pulse text-ucd-accent" />
+                            <span>Uploading to local server...</span>
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-1 w-full bg-ucd-bg h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-200 rounded-full ${
+                            item.stage === 'cloud'
+                              ? 'bg-gradient-to-r from-sky-400 to-blue-500 shadow-glow'
+                              : 'bg-gradient-to-r from-ucd-accent to-ucd-royal shadow-glow'
+                          }`}
+                          style={{ width: `${Math.min(100, Math.max(0, item.progress || 0))}%` }}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-ucd-dim mt-1">
+                        <span>{formatBytes(item.loaded || 0)} / {formatBytes(item.total || 0)}</span>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-ucd-accent font-semibold">{formatSpeed(item.speed || 0)}</span>
+                          {item.etaSeconds > 0 && <span>• {formatETA(item.etaSeconds)}</span>}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {item.status === 'queued' && (
+                    <p className="text-[10px] text-ucd-dim mt-1 flex items-center space-x-1">
+                      <Clock className="w-3 h-3 text-amber-400" />
+                      <span>Queued in line...</span>
+                    </p>
+                  )}
+
+                  {item.status === 'cancelled' && (
+                    <p className="text-[10px] text-ucd-dim mt-1 flex items-center space-x-1 text-ucd-rose">
+                      <Ban className="w-3 h-3 text-ucd-rose" />
+                      <span>Upload cancelled</span>
+                    </p>
+                  )}
+
+                  {item.status === 'error' && (
+                    <p className="text-[10px] text-ucd-rose mt-1 truncate">{item.error || 'Upload failed'}</p>
+                  )}
+                </div>
+
+                <div className="flex items-center space-x-1.5 shrink-0">
+                  {item.status === 'uploading' && (
+                    <span className="text-[10px] font-bold text-ucd-accent flex items-center space-x-1 mr-1">
+                      <Loader2 className="w-3 h-3 animate-spin" /><span>{item.progress || 0}%</span>
+                    </span>
+                  )}
+                  {item.status === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                  {item.status === 'error' && <AlertCircle className="w-4 h-4 text-ucd-rose" />}
+                  {(item.status === 'error' || item.status === 'cancelled') && (
+                    <button
+                      onClick={() => retryUpload?.(item.id)}
+                      title="Retry Upload"
+                      className="p-1 text-ucd-accent hover:text-sky-400 rounded hover:bg-ucd-accent/10 transition-colors"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => removeUploadFromQueue?.(item.id)}
+                    title="Cancel / Remove"
+                    className="p-1 text-ucd-dim hover:text-ucd-rose rounded hover:bg-ucd-rose/10 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
