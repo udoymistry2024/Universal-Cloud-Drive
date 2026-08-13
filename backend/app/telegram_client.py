@@ -402,6 +402,42 @@ class TelegramService:
                 await self.app.send_message(event.chat_id, txt, buttons=btn, parse_mode="md")
                 return
 
+        # Auto-detect forwarded messages from private Telegram channels to bind Channel ID automatically!
+        if hasattr(event.message, "fwd_from") and event.message.fwd_from:
+            fwd = event.message.fwd_from
+            channel_peer = getattr(fwd, "from_id", None)
+            new_channel_id = None
+            if channel_peer and hasattr(channel_peer, "channel_id"):
+                new_channel_id = int(f"-100{channel_peer.channel_id}")
+
+            if new_channel_id:
+                # Update backend/.env automatically
+                env_file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env")
+                if not os.path.exists(env_file_path):
+                    env_file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+
+                if os.path.exists(env_file_path):
+                    with open(env_file_path, "r", encoding="utf-8") as f:
+                        lines = f.readlines()
+                    new_lines = []
+                    for line in lines:
+                        if line.startswith("TELEGRAM_CHANNEL_ID="):
+                            new_lines.append(f"TELEGRAM_CHANNEL_ID={new_channel_id}\n")
+                        else:
+                            new_lines.append(line)
+                    with open(env_file_path, "w", encoding="utf-8") as f:
+                        f.writelines(new_lines)
+
+                settings.TELEGRAM_CHANNEL_ID = str(new_channel_id)
+                reply_txt = (
+                    f"🎉 **NEW TELEGRAM CHANNEL CONNECTED!**\n\n"
+                    f"• **New Channel ID:** `{new_channel_id}`\n"
+                    f"• **Status:** Saved to `backend/.env` and loaded live!\n\n"
+                    f"✅ **Universal Cloud Drive is now ready to upload files to your new channel!**"
+                )
+                await event.reply(reply_txt, parse_mode="md")
+                return
+
         if not text.startswith("/"):
             return
 
@@ -413,6 +449,31 @@ class TelegramService:
         if cmd in ["/start", "/help", "/admin"]:
             txt, btn = await self._get_main_menu_payload()
             await event.reply(txt, buttons=btn, parse_mode="md")
+
+        elif cmd == "/setchannel":
+            if not args:
+                await event.reply("⚠️ **Usage:** `/setchannel <new_channel_id>`\n\n💡 *Or simply forward any message from your new channel to this chat!*", parse_mode="md")
+                return
+            new_channel_id = args[0].strip()
+            env_file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env")
+            if not os.path.exists(env_file_path):
+                env_file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+
+            if os.path.exists(env_file_path):
+                with open(env_file_path, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                new_lines = []
+                for line in lines:
+                    if line.startswith("TELEGRAM_CHANNEL_ID="):
+                        new_lines.append(f"TELEGRAM_CHANNEL_ID={new_channel_id}\n")
+                    else:
+                        new_lines.append(line)
+                with open(env_file_path, "w", encoding="utf-8") as f:
+                    f.writelines(new_lines)
+
+            settings.TELEGRAM_CHANNEL_ID = str(new_channel_id)
+            await event.reply(f"✅ **New Telegram Channel ID set to:** `{new_channel_id}`!", parse_mode="md")
+            return
 
         elif cmd == "/users":
             txt, btn = await self._get_users_list_payload()
