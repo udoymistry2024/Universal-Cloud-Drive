@@ -344,19 +344,11 @@ class TelegramService:
 
     # ─── EVENT LISTENER 1: TEXT MESSAGES & SLASH COMMANDS ────────────────
 
+    async def _handle_admin_messages(self, event):
+        """Handles incoming text messages, slash commands, user lookups, and pending text inputs."""
         sender_id = await self._get_event_sender_id(event)
-        if not self._is_admin(sender_id):
-            text = (event.raw_text or "").strip()
-            if text.startswith("/start") or text.startswith("/help"):
-                welcome_msg = (
-                    "👋 **Welcome to Universal Cloud Drive Assistant!**\n\n"
-                    "This bot manages secure cloud file storage, OTP verification, and system notifications.\n\n"
-                    f"🆔 **Your Telegram User ID:** `{sender_id}`\n\n"
-                    "💡 *Note:* Access to secret admin management commands (`/admin`, `/users`, `/setlimit`, `/purgechannel`) "
-                    "requires your Telegram User ID to be set as `ADMIN_TELEGRAM_ID` in the server's `.env` configuration file."
-                )
-                await event.reply(welcome_msg, parse_mode="md")
-            return
+        text = (event.raw_text or "").strip()
+        logger.info(f"[TG_MSG_RECV] Received message from sender_id={sender_id}: '{text}'")
 
         # De-duplication check for message ID
         evt_key = (getattr(event, "chat_id", None), getattr(event, "id", None))
@@ -366,8 +358,6 @@ class TelegramService:
             self._processed_events.add(evt_key)
             if len(self._processed_events) > 500:
                 self._processed_events.clear()
-
-        text = (event.raw_text or "").strip()
 
         # Check if Admin is in a pending text input state (e.g. search user, custom GB entry)
         if sender_id and sender_id in self.admin_pending_state and not text.startswith("/"):
@@ -1005,6 +995,15 @@ class OTPTelegramService:
 
         self._is_started = False
 
+        @self.app.on(events.NewMessage(pattern=r'/start'))
+        async def _otp_start(event):
+            msg = (
+                "🔐 **Universal Cloud Drive — OTP Verification Bot**\n\n"
+                "This bot sends 6-digit login and security verification codes to your Telegram direct message.\n\n"
+                "✅ Verification service active."
+            )
+            await event.reply(msg, parse_mode="md")
+
     async def start(self):
         if not self._is_started:
             await self.app.start(bot_token=settings.OTP_TELEGRAM_BOT_TOKEN)
@@ -1058,6 +1057,15 @@ class TicketTelegramService:
         )
 
         self._is_started = False
+
+        @self.app.on(events.NewMessage(pattern=r'/start'))
+        async def _ticket_start(event):
+            msg = (
+                "📋 **Universal Cloud Drive — Registration & Support Bot**\n\n"
+                "This bot notifies system administrators regarding storage limit requests and support tickets.\n\n"
+                "✅ Support ticket service active."
+            )
+            await event.reply(msg, parse_mode="md")
 
     async def start(self):
         if not self._is_started:
