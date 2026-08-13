@@ -57,6 +57,31 @@ It transforms private Telegram channels into an enterprise-grade cloud storage s
 - Telegram API Credentials (`TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, 3 Bot Tokens)
 - DataForge Database Platform (`DATAFORGE_DB_HOST`, `DATAFORGE_DB_PORT`, `DATAFORGE_DB_NAME`)
 
+---
+
+### 📌 How to Obtain Telegram API Credentials & IDs
+
+1. **Telegram API ID & API Hash (`TELEGRAM_API_ID`, `TELEGRAM_API_HASH`)**:
+   - Visit [my.telegram.org](https://my.telegram.org) and log in with your Telegram phone number.
+   - Go to **API Development Tools**.
+   - Fill out the short form to create an app and copy your `TELEGRAM_API_ID` (numeric) and `TELEGRAM_API_HASH` (string).
+
+2. **Telegram Bot Tokens (3 Dedicated Bots)**:
+   - Open Telegram and start a chat with [@BotFather](https://t.me/BotFather).
+   - Send `/newbot` three times to create 3 dedicated bot instances:
+     - **Bot 1 (Storage Bot)** → `TELEGRAM_BOT_TOKEN` (Manages channel file storage & admin commands)
+     - **Bot 2 (OTP Auth Bot)** → `OTP_TELEGRAM_BOT_TOKEN` (Sends 6-digit login codes to users)
+     - **Bot 3 (Support Ticket Bot)** → `TICKET_TELEGRAM_BOT_TOKEN` (Sends storage upgrade alerts to admin)
+
+3. **Telegram Channel ID (`TELEGRAM_CHANNEL_ID`)**:
+   - Create a new **Private Telegram Channel**.
+   - Add your **Storage Bot** (`TELEGRAM_BOT_TOKEN`) as an **Administrator** with permission to post messages.
+   - Forward any message from your channel to [@userinfobot](https://t.me/userinfobot) or [@raw_data_bot](https://t.me/raw_data_bot) to retrieve the Channel ID (starts with `-100`, e.g., `-1001234567890`).
+
+4. **Admin Telegram User ID (`ADMIN_TELEGRAM_ID`)**:
+   - Send `/start` to [@userinfobot](https://t.me/userinfobot) in Telegram.
+   - Copy your personal numeric Telegram User ID (e.g., `12345678`). Users with this ID gain exclusive access to Secret Admin Commands (`/users`, `/setlimit`, `/ban`, `/unban`).
+
 ### 1. Clone & Set Up Environment Variables
 Create `.env` inside `backend/` directory:
 ```env
