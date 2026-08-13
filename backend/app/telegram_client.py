@@ -895,8 +895,22 @@ class TelegramService:
             logger.warning(f"[TG_DELETE_MSG_ERR] Could not delete message #{message_id}: {e}")
             return False
 
+    async def _delete_chunk_recursive(self, entity, chunk: List[int]) -> int:
+        if not chunk:
+            return 0
+        try:
+            await self.app.delete_messages(entity, message_ids=chunk)
+            return len(chunk)
+        except Exception:
+            if len(chunk) <= 1:
+                return 0  # Skip service message or non-deletable message ID
+            mid = len(chunk) // 2
+            left = await self._delete_chunk_recursive(entity, chunk[:mid])
+            right = await self._delete_chunk_recursive(entity, chunk[mid:])
+            return left + right
+
     async def delete_file_messages_batch(self, message_ids: List[int]) -> int:
-        """Deletes multiple message IDs from Telegram channel in chunks, using entity resolution & individual fallback."""
+        """Deletes multiple message IDs from Telegram channel using high-speed recursive bisection batching."""
         if not message_ids:
             return 0
         await self.start()
@@ -911,20 +925,13 @@ class TelegramService:
         deleted_count = 0
         unique_ids = sorted(list(set([int(m) for m in message_ids if m and int(m) > 0])))
 
-        for i in range(0, len(unique_ids), 50):
-            chunk = unique_ids[i:i + 50]
-            try:
-                await self.app.delete_messages(entity, message_ids=chunk)
-                deleted_count += len(chunk)
-                logger.info(f"[TG_BATCH_DELETE] Purged chunk of {len(chunk)} messages from Telegram Channel.")
-            except Exception as e:
-                # If batch delete fails (e.g. contains service message or invalid ID), fall back to deleting individually
-                for m_id in chunk:
-                    try:
-                        await self.app.delete_messages(entity, message_ids=[m_id])
-                        deleted_count += 1
-                    except Exception:
-                        pass
+        for i in range(0, len(unique_ids), 100):
+            chunk = unique_ids[i:i + 100]
+            del_c = await self._delete_chunk_recursive(entity, chunk)
+            deleted_count += del_c
+            if del_c > 0:
+                logger.info(f"[TG_BATCH_DELETE] Purged {del_c} messages from Telegram Channel chunk {i}..{i+100}.")
+
         return deleted_count
 
     async def purge_entire_channel_and_db(self) -> dict:
