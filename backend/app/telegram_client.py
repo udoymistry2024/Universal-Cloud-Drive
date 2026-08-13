@@ -41,36 +41,20 @@ class TelegramService:
         )
 
         self._is_started = False
-        self._is_events_registered = False
         self._processed_events = set()
         self.admin_pending_state = {}  # { admin_id: {"action": "...", "username": "..."} }
         self._download_semaphore = asyncio.Semaphore(40)
         self._upload_semaphore = asyncio.Semaphore(20)
 
+        # Register event handlers BEFORE client.start() so Telethon binds update dispatchers
+        self.app.add_event_handler(self._handle_admin_messages, events.NewMessage)
+        self.app.add_event_handler(self._handle_admin_callbacks, events.CallbackQuery)
+        print(f"[Admin Bot] Secret Admin Command Center listener registered to Storage Bot.")
 
     async def start(self):
         if not self._is_started:
             await self.app.start(bot_token=settings.TELEGRAM_BOT_TOKEN)
             self._is_started = True
-            
-            # Check if Telegram Bot handlers should be attached on this instance
-            # Prevents duplicate bot menu replies when both Hugging Face Space and local dev run simultaneously
-            should_attach = True
-            enable_env = os.environ.get("ENABLE_TELEGRAM_BOT_LISTENER", "auto").lower()
-            if enable_env == "false" or enable_env == "0":
-                should_attach = False
-            elif enable_env == "auto":
-                is_hf_space = bool(os.environ.get("SPACE_ID") or os.environ.get("HF_SPACE_ID"))
-                if not is_hf_space and os.environ.get("DISABLE_LOCAL_BOT_LISTENER", "true").lower() in ["true", "1"]:
-                    should_attach = False
-
-            if should_attach and not self._is_events_registered:
-                self.app.add_event_handler(self._handle_admin_messages, events.NewMessage)
-                self.app.add_event_handler(self._handle_admin_callbacks, events.CallbackQuery)
-                self._is_events_registered = True
-                print(f"[Admin Bot] Secret Admin Command Center listener attached to Storage Bot.")
-            elif not should_attach:
-                print(f"[Admin Bot] Standby instance: Bot listener suppressed (Primary instance is running on Cloud).")
 
             try:
                 channel_id = int(settings.TELEGRAM_CHANNEL_ID)
@@ -360,10 +344,18 @@ class TelegramService:
 
     # ─── EVENT LISTENER 1: TEXT MESSAGES & SLASH COMMANDS ────────────────
 
-    async def _handle_admin_messages(self, event):
-        """Handles incoming text messages, slash commands, user lookups, and pending text inputs."""
         sender_id = await self._get_event_sender_id(event)
         if not self._is_admin(sender_id):
+            text = (event.raw_text or "").strip()
+            if text.startswith("/start") or text.startswith("/help"):
+                welcome_msg = (
+                    "👋 **Welcome to Universal Cloud Drive Assistant!**\n\n"
+                    "This bot manages secure cloud file storage, OTP verification, and system notifications.\n\n"
+                    f"🆔 **Your Telegram User ID:** `{sender_id}`\n\n"
+                    "💡 *Note:* Access to secret admin management commands (`/admin`, `/users`, `/setlimit`, `/purgechannel`) "
+                    "requires your Telegram User ID to be set as `ADMIN_TELEGRAM_ID` in the server's `.env` configuration file."
+                )
+                await event.reply(welcome_msg, parse_mode="md")
             return
 
         # De-duplication check for message ID

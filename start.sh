@@ -70,7 +70,7 @@ fi
 # Start Backend in detached background session
 echo "📡 Starting Backend (FastAPI) on http://0.0.0.0:$BACKEND_PORT ..."
 cd "$BACKEND_DIR"
-setsid nohup .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port "$BACKEND_PORT" </dev/null > "$LOGS_DIR/backend.log" 2>&1 &
+setsid nohup env PYTHONUNBUFFERED=1 .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port "$BACKEND_PORT" </dev/null > "$LOGS_DIR/backend.log" 2>&1 &
 BACKEND_PID=$!
 disown $BACKEND_PID 2>/dev/null || true
 echo "$BACKEND_PID" > "$LOGS_DIR/backend.pid"
