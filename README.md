@@ -107,15 +107,24 @@ Create `.env` inside `frontend/` directory:
 VITE_API_BASE_URL=http://localhost:8000
 ```
 
-### 2. Run Locally
-Execute the automated single-script launcher:
+### 2. Run Background Services & Custom Ports
+Execute the automated background launcher:
 ```bash
-chmod +x start.sh
+chmod +x start.sh stop.sh
+
+# Run with default ports (Backend: 8000, Frontend: 5173) in background:
 ./start.sh
+
+# Or specify custom ports (e.g. Backend: 8080, Frontend: 3000):
+./start.sh 8080 3000
 ```
-Or run individually:
-- Backend: `cd backend && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload`
-- Frontend: `cd frontend && npm run dev`
+> 💡 Both services will run in the background. You can safely close your terminal.
+
+### 3. Stop Services & Free Ports
+To gracefully stop all background services and free active ports:
+```bash
+./stop.sh
+```
 
 ---
 
