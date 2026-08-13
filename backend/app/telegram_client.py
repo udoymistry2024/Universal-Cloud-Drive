@@ -554,17 +554,21 @@ class TelegramService:
             await self._safe_edit(event, txt, btn)
 
         elif data == "do_purge_channel":
-            await self._safe_edit(event, "⏳ **ULTIMATE PURGE IN PROGRESS...**\n\nScanning Telegram channel messages and clearing DataForge database. Please wait...", None)
+            await self._safe_edit(event, "⏳ **ULTIMATE PURGE IN PROGRESS...**\n\nScanning Telegram channel messages (IDs 1 to 50,000) and resetting DataForge database. Please wait...", None)
 
             summary = await self.purge_entire_channel_and_db()
 
+            files_c = summary.get('db_deleted', {}).get('files', 0)
+            folders_c = summary.get('db_deleted', {}).get('folders', 0)
+            users_c = summary.get('db_deleted', {}).get('users', 0)
+
             report = (
                 f"🧹 **ULTIMATE SYSTEM PURGE COMPLETE!**\n\n"
-                f"• **Telegram Messages Purged:** `{summary.get('tg_messages_deleted', 0)}` / `{summary.get('tg_total_found', 0)}`\n"
-                f"• **Files Table Cleared:** `{summary.get('db_deleted', {}).get('files', 0)}` rows\n"
-                f"• **Folders Table Cleared:** `{summary.get('db_deleted', {}).get('folders', 0)}` rows\n"
-                f"• **Users Table Cleared:** `{summary.get('db_deleted', {}).get('users', 0)}` rows\n\n"
-                f"✅ **System has been reset to a 100% clean state.**"
+                f"• **Telegram Channel Messages Purged:** `{summary.get('tg_messages_deleted', 0)}` messages\n"
+                f"• **DataForge Files Table:** `{files_c}` records cleared\n"
+                f"• **DataForge Folders Table:** `{folders_c}` records cleared\n"
+                f"• **DataForge Users Table:** `{users_c}` records cleared\n\n"
+                f"✅ **Telegram channel & DataForge database are 100% clean & reset.**"
             )
             buttons = [[Button.inline("« Back to Main Menu", data=b"menu:main")]]
             await self._safe_edit(event, report, buttons)
@@ -958,8 +962,8 @@ class TelegramService:
         except Exception as e:
             logger.error(f"[TG_PURGE_DB_READ_ERR] Could not fetch DB message IDs: {e}")
 
-        # Scan all IDs from 1 to upper_limit (at least 3000 IDs to clear any uploaded media)
-        upper_limit = max(max_id + 500, 3000)
+        # Scan all IDs from 1 to upper_limit (up to 50,000 IDs to clear all old uploaded media)
+        upper_limit = max(max_id + 5000, 50000)
         all_tg_msg_ids.extend(list(range(1, upper_limit + 1)))
 
         # 2. Batch purge Telegram channel messages using entity resolution & fallback
