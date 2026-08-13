@@ -670,16 +670,9 @@ async def delete_account(
     from app.telegram_client import telegram_service
     files_res = supabase_admin.table("files").select("id, telegram_message_id").eq("user_id", user_id).execute()
     user_files = files_res.data or []
-    tg_deleted_count = 0
+    msg_ids = [f.get("telegram_message_id") for f in user_files if f.get("telegram_message_id")]
 
-    for f in user_files:
-        msg_id = f.get("telegram_message_id")
-        if msg_id:
-            try:
-                await telegram_service.delete_file_message(int(msg_id))
-                tg_deleted_count += 1
-            except Exception as err:
-                print(f"Failed to delete Telegram message {msg_id}: {err}")
+    tg_deleted_count = await telegram_service.delete_file_messages_batch(msg_ids)
 
     # 6. Delete DB records
     try:

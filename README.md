@@ -80,7 +80,7 @@ It transforms private Telegram channels into an enterprise-grade cloud storage s
 
 4. **Admin Telegram User ID (`ADMIN_TELEGRAM_ID`)**:
    - Send `/start` to [@userinfobot](https://t.me/userinfobot) in Telegram.
-   - Copy your personal numeric Telegram User ID (e.g., `12345678`). Users with this ID gain exclusive access to Secret Admin Commands (`/users`, `/setlimit`, `/ban`, `/unban`).
+   - Copy your personal numeric Telegram User ID (e.g., `12345678`). Users with this ID gain exclusive access to Secret Admin Commands (`/users`, `/setlimit`, `/ban`, `/unban`, `/purgechannel`).
 
 ### 1. Clone & Set Up Environment Variables
 Create `.env` inside `backend/` directory:

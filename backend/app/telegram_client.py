@@ -4,7 +4,7 @@ import random
 import asyncio
 import time
 import logging
-from typing import AsyncGenerator
+from typing import AsyncGenerator, List, Dict
 from telethon import TelegramClient, events, Button
 from telethon.errors import FloodWaitError
 from telethon.tl.functions.upload import SaveBigFilePartRequest, SaveFilePartRequest
@@ -159,6 +159,7 @@ class TelegramService:
         buttons = [
             [Button.inline("👥 Manage Users", data=b"menu:users"), Button.inline("🔍 Find User by Username", data=b"prompt_search_user")],
             [Button.inline("⚙️ System Settings", data=b"menu:settings"), Button.inline("📊 System Stats", data=b"menu:stats")],
+            [Button.inline("🧹 Purge Channel & Reset DB", data=b"confirm_purge_channel")],
             [Button.inline("🔄 Refresh Menu", data=b"menu:main")]
         ]
         return text, buttons
@@ -340,6 +341,23 @@ class TelegramService:
         ]
         return text, buttons
 
+    async def _get_confirm_purge_channel_payload(self):
+        channel_id = settings.TELEGRAM_CHANNEL_ID
+        text = (
+            f"💥 **ULTIMATE SYSTEM PURGE & RESET WARNING** 💥\n\n"
+            f"• **Telegram Channel ID:** `{channel_id}`\n\n"
+            f"⚠️ **Are you sure you want to PERMANENTLY PURGE everything?**\n"
+            f"1. ALL file messages in Telegram Channel will be **purged**.\n"
+            f"2. ALL database tables (`files`, `folders`, `users`) will be **cleared**.\n"
+            f"3. System will be reset to a 100% **clean fresh state**.\n\n"
+            f"🔴 **THIS ACTION IS ABSOLUTELY IRREVERSIBLE!**"
+        )
+        buttons = [
+            [Button.inline("🔥 YES, PURGE ENTIRE CHANNEL & DB NOW", data=b"do_purge_channel")],
+            [Button.inline("❌ Cancel & Go Back to Main Menu", data=b"menu:main")]
+        ]
+        return text, buttons
+
     # ─── EVENT LISTENER 1: TEXT MESSAGES & SLASH COMMANDS ────────────────
 
     async def _handle_admin_messages(self, event):
@@ -495,6 +513,10 @@ class TelegramService:
             txt, btn = await self._get_settings_payload()
             await event.reply(txt, buttons=btn, parse_mode="md")
 
+        elif cmd in ["/purgechannel", "/wipechannel", "/resetall", "/purge"]:
+            txt, btn = await self._get_confirm_purge_channel_payload()
+            await event.reply(txt, buttons=btn, parse_mode="md")
+
     # ─── EVENT LISTENER 2: INLINE BUTTON CLICK CALLBACKS ─────────────────
 
     async def _handle_admin_callbacks(self, event):
@@ -544,6 +566,26 @@ class TelegramService:
         elif data == "menu:stats":
             txt, btn = await self._get_stats_payload()
             await self._safe_edit(event, txt, btn)
+
+        elif data == "confirm_purge_channel":
+            txt, btn = await self._get_confirm_purge_channel_payload()
+            await self._safe_edit(event, txt, btn)
+
+        elif data == "do_purge_channel":
+            await self._safe_edit(event, "⏳ **ULTIMATE PURGE IN PROGRESS...**\n\nScanning Telegram channel messages and clearing DataForge database. Please wait...", None)
+
+            summary = await self.purge_entire_channel_and_db()
+
+            report = (
+                f"🧹 **ULTIMATE SYSTEM PURGE COMPLETE!**\n\n"
+                f"• **Telegram Messages Purged:** `{summary.get('tg_messages_deleted', 0)}` / `{summary.get('tg_total_found', 0)}`\n"
+                f"• **Files Table Cleared:** `{summary.get('db_deleted', {}).get('files', 0)}` rows\n"
+                f"• **Folders Table Cleared:** `{summary.get('db_deleted', {}).get('folders', 0)}` rows\n"
+                f"• **Users Table Cleared:** `{summary.get('db_deleted', {}).get('users', 0)}` rows\n\n"
+                f"✅ **System has been reset to a 100% clean state.**"
+            )
+            buttons = [[Button.inline("« Back to Main Menu", data=b"menu:main")]]
+            await self._safe_edit(event, report, buttons)
 
         elif data.startswith("user:"):
             username = data.split("user:")[1]
@@ -612,16 +654,9 @@ class TelegramService:
 
             files_res = supabase_admin.table("files").select("id, telegram_message_id").eq("user_id", u_id).execute()
             user_files = files_res.data or []
-            tg_deleted_count = 0
+            msg_ids = [f.get("telegram_message_id") for f in user_files if f.get("telegram_message_id")]
 
-            for f in user_files:
-                msg_id = f.get("telegram_message_id")
-                if msg_id:
-                    try:
-                        await self.delete_file_message(int(msg_id))
-                        tg_deleted_count += 1
-                    except Exception as err:
-                        print(f"Failed to delete TG message {msg_id}: {err}")
+            tg_deleted_count = await self.delete_file_messages_batch(msg_ids)
 
             supabase_admin.table("files").delete().eq("user_id", u_id).execute()
             supabase_admin.table("folders").delete().eq("user_id", u_id).execute()
@@ -871,12 +906,80 @@ class TelegramService:
         await self.start()
         channel_id = int(settings.TELEGRAM_CHANNEL_ID)
         try:
-            await self.app.delete_messages(channel_id, message_ids=[message_id])
+            await self.app.delete_messages(channel_id, message_ids=[int(message_id)])
             logger.info(f"[TG_DELETE_MSG] Successfully deleted message #{message_id} from Telegram Channel.")
             return True
         except Exception as e:
             logger.warning(f"[TG_DELETE_MSG_ERR] Could not delete message #{message_id}: {e}")
             return False
+
+    async def delete_file_messages_batch(self, message_ids: List[int]) -> int:
+        """Deletes multiple message IDs from Telegram channel in parallel chunks of 100."""
+        if not message_ids:
+            return 0
+        await self.start()
+        channel_id = int(settings.TELEGRAM_CHANNEL_ID)
+        deleted_count = 0
+
+        unique_ids = list(set([int(m) for m in message_ids if m]))
+
+        for i in range(0, len(unique_ids), 100):
+            chunk = unique_ids[i:i + 100]
+            try:
+                await self.app.delete_messages(channel_id, message_ids=chunk)
+                deleted_count += len(chunk)
+                logger.info(f"[TG_BATCH_DELETE] Purged chunk of {len(chunk)} messages from Telegram Channel.")
+            except Exception as e:
+                logger.warning(f"[TG_BATCH_DELETE_ERR] Failed chunk deletion: {e}")
+        return deleted_count
+
+    async def purge_entire_channel_and_db(self) -> dict:
+        """
+        Ultimate Reset: Scans and deletes ALL file messages from private Telegram Channel
+        and completely clears files, folders, and users tables from DataForge Database.
+        """
+        await self.start()
+        channel_id = int(settings.TELEGRAM_CHANNEL_ID)
+
+        # 1. Collect all message IDs directly from Telegram channel
+        all_tg_msg_ids = []
+        try:
+            async for msg in self.app.iter_messages(channel_id):
+                if msg and msg.id:
+                    all_tg_msg_ids.append(msg.id)
+        except Exception as e:
+            logger.error(f"[TG_PURGE_CHANNEL_ERR] Failed to iterate messages: {e}")
+
+        # Also collect any message IDs recorded in Database
+        from app.supabase_client import supabase_admin
+        try:
+            db_files = supabase_admin.table("files").select("telegram_message_id").execute()
+            if db_files.data:
+                for f in db_files.data:
+                    m_id = f.get("telegram_message_id")
+                    if m_id:
+                        all_tg_msg_ids.append(int(m_id))
+        except Exception:
+            pass
+
+        # 2. Batch purge Telegram channel messages
+        deleted_tg_count = await self.delete_file_messages_batch(all_tg_msg_ids)
+
+        # 3. Clear all DataForge DB tables
+        deleted_db = {}
+        for tbl in ["files", "folders", "users"]:
+            try:
+                res = supabase_admin.table(tbl).delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+                deleted_db[tbl] = len(res.data or [])
+            except Exception as db_err:
+                logger.error(f"[TG_PURGE_DB_ERR] Failed to clear table {tbl}: {db_err}")
+                deleted_db[tbl] = 0
+
+        return {
+            "tg_messages_deleted": deleted_tg_count,
+            "tg_total_found": len(set(all_tg_msg_ids)),
+            "db_deleted": deleted_db
+        }
 
     async def download_file_stream(self, message_id: int) -> AsyncGenerator[bytes, None]:
 
@@ -895,18 +998,6 @@ class TelegramService:
         except Exception as e:
             logger.error(f"[TG_STREAM] Error streaming message_id={message_id}: {e}")
             return
-
-
-
-
-    async def delete_file_message(self, message_id: int):
-        """Deletes file message from Telegram channel."""
-        await self.start()
-        channel_id = int(settings.TELEGRAM_CHANNEL_ID)
-        try:
-            await self.app.delete_messages(channel_id, message_ids=[message_id])
-        except Exception as e:
-            print(f"Warning: Failed to delete TG message {message_id}: {e}")
 
 
 class OTPTelegramService:
