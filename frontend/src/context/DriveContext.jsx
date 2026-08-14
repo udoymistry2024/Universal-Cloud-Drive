@@ -969,10 +969,10 @@ export const DriveProvider = ({ children }) => {
 
   const [isPausedAll, setIsPausedAll] = useState(false)
 
-  const notifyCancelUploadOnBackend = (uploadId) => {
+  const notifyResumeUploadOnBackend = (uploadId) => {
     if (!uploadId) return
     try {
-      fetch(`${API_BASE_URL}/api/files/cancel-upload/${uploadId}`, { method: 'POST' }).catch(() => {})
+      fetch(`${API_BASE_URL}/api/files/resume-upload/${uploadId}`, { method: 'POST' }).catch(() => {})
     } catch (e) {}
   }
 
@@ -992,7 +992,24 @@ export const DriveProvider = ({ children }) => {
 
   const resumeUpload = (id) => {
     uploadControllersRef.current.set(id, new AbortController())
-    setUploadQueue(prev => prev.map(u => u.id === id ? { ...u, status: 'queued', speed: 0, etaSeconds: 0, error: null } : u))
+    setUploadQueue(prev => prev.map(u => {
+      if (u.id === id) {
+        notifyResumeUploadOnBackend(u.uploadId)
+        const freshUploadId = Math.random().toString(36).substring(7)
+        return {
+          ...u,
+          uploadId: freshUploadId,
+          status: 'queued',
+          stage: 'local',
+          progress: 0,
+          loaded: 0,
+          speed: 0,
+          etaSeconds: 0,
+          error: null
+        }
+      }
+      return u
+    }))
   }
 
   const pauseAllUploads = () => {
@@ -1016,10 +1033,12 @@ export const DriveProvider = ({ children }) => {
     safeQueue.forEach(u => {
       if (u.status === 'paused' || u.status === 'cancelled' || u.status === 'error') {
         uploadControllersRef.current.set(u.id, new AbortController())
+        notifyResumeUploadOnBackend(u.uploadId)
       }
     })
     setUploadQueue(prev => prev.map(u => (u.status === 'paused' || u.status === 'cancelled' || u.status === 'error') ? {
       ...u,
+      uploadId: Math.random().toString(36).substring(7),
       status: 'queued',
       stage: 'local',
       progress: 0,
@@ -1036,10 +1055,12 @@ export const DriveProvider = ({ children }) => {
     safeQueue.forEach(u => {
       if (u.status === 'cancelled' || u.status === 'error' || u.status === 'paused') {
         uploadControllersRef.current.set(u.id, new AbortController())
+        notifyResumeUploadOnBackend(u.uploadId)
       }
     })
     setUploadQueue(prev => prev.map(u => (u.status === 'cancelled' || u.status === 'error' || u.status === 'paused') ? {
       ...u,
+      uploadId: Math.random().toString(36).substring(7),
       status: 'queued',
       stage: 'local',
       progress: 0,
@@ -1054,8 +1075,10 @@ export const DriveProvider = ({ children }) => {
     setUploadQueue(prev => prev.map(u => {
       if (u.id === id) {
         uploadControllersRef.current.set(id, new AbortController())
+        notifyResumeUploadOnBackend(u.uploadId)
         return {
           ...u,
+          uploadId: Math.random().toString(36).substring(7),
           status: 'queued',
           stage: 'local',
           progress: 0,

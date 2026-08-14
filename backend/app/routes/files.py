@@ -170,6 +170,14 @@ async def cancel_upload_endpoint(upload_id: str):
         upload_progress_store[upload_id] = _progress({"stage": "cancelled"})
     return {"status": "ok", "message": f"Upload {upload_id} marked as cancelled"}
 
+@router.post("/resume-upload/{upload_id}")
+async def resume_upload_endpoint(upload_id: str):
+    """Signal endpoint called by frontend when an upload is resumed by user."""
+    cancelled_upload_ids.discard(upload_id)
+    if upload_id in upload_progress_store:
+        upload_progress_store.pop(upload_id, None)
+    return {"status": "ok", "message": f"Upload {upload_id} un-marked from cancelled"}
+
 def cleanup_upload_progress(upload_id: str):
     """Remove upload progress entry to free memory."""
     try:
@@ -268,6 +276,7 @@ async def upload_file(
     user_id = get_current_user_id(authorization)
     
     if upload_id:
+        cancelled_upload_ids.discard(upload_id)
         upload_progress_store[upload_id] = _progress({
             "stage": "local", # Stage 1: Uploading to local server
             "current": 0,
