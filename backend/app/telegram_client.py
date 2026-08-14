@@ -4,7 +4,7 @@ import random
 import asyncio
 import time
 import logging
-from typing import AsyncGenerator, List, Dict
+from typing import AsyncGenerator, List, Dict, Optional
 from telethon import TelegramClient, events, Button
 from telethon.errors import FloodWaitError
 from telethon.tl.functions.upload import SaveBigFilePartRequest, SaveFilePartRequest
