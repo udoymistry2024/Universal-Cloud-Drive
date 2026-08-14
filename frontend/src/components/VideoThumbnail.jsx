@@ -1,110 +1,29 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { Film, Loader2 } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Film } from 'lucide-react'
 
-export const VideoThumbnail = ({ fileId, fileName, thumbnailUrl, streamUrl, isAboveTheFold }) => {
+export const VideoThumbnail = ({ fileId, fileName, thumbnailUrl, isAboveTheFold }) => {
   const [imgUrl, setImgUrl] = useState(thumbnailUrl)
   const [loadError, setLoadError] = useState(false)
-  const [retryCount, setRetryCount] = useState(0)
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [seeking, setSeeking] = useState(false)
-  const videoRef = useRef(null)
-  const canvasRef = useRef(null)
 
   useEffect(() => {
     setImgUrl(thumbnailUrl)
     setLoadError(false)
-    setRetryCount(0)
-    setIsGenerating(false)
-    const cacheKey = `ucd_vid_thumb_${fileId}`
-    try {
-      const cached = sessionStorage.getItem(cacheKey)
-      if (cached) {
-        setImgUrl(cached)
-      }
-    } catch (e) {}
   }, [fileId, thumbnailUrl])
-
-  const handleBackendError = () => {
-    if (retryCount < 4) {
-      setIsGenerating(true)
-      const nextRetry = retryCount + 1
-      setRetryCount(nextRetry)
-      setTimeout(() => {
-        // Append cache-buster timestamp query param to force browser re-request
-        setImgUrl(`${thumbnailUrl}?t=${Date.now()}`)
-      }, 2000 * nextRetry)
-    } else {
-      setIsGenerating(false)
-      setLoadError(true)
-    }
-  }
-
-  const handleVideoLoadedMetadata = () => {
-    if (videoRef.current) {
-      const vid = videoRef.current
-      const targetTime = vid.duration > 10 ? 10 : (vid.duration > 1 ? 1 : 0.5)
-      vid.currentTime = targetTime
-      setSeeking(true)
-    }
-  }
-
-  const handleVideoSeeked = () => {
-    if (!seeking || !videoRef.current || !canvasRef.current) return
-    try {
-      const vid = videoRef.current
-      const canvas = canvasRef.current
-      canvas.width = 360
-      canvas.height = 200
-      const ctx = canvas.getContext('2d')
-      ctx.drawImage(vid, 0, 0, canvas.width, canvas.height)
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
-      if (dataUrl && dataUrl.length > 500) {
-        setImgUrl(dataUrl)
-        setLoadError(false)
-        setIsGenerating(false)
-        try {
-          sessionStorage.setItem(`ucd_vid_thumb_${fileId}`, dataUrl)
-        } catch (e) {}
-      }
-    } catch (e) {
-      console.warn("Client canvas frame capture error:", e)
-    }
-  }
 
   return (
     <div className="relative w-full h-full flex items-center justify-center bg-black/40 overflow-hidden group/vid">
       {imgUrl && !loadError ? (
         <img
           src={imgUrl}
-          alt={fileName}
+          alt=""
           className="w-full h-full object-cover opacity-85 group-hover/vid:opacity-100 transition-opacity"
           loading={isAboveTheFold ? "eager" : "lazy"}
-          onLoad={() => setIsGenerating(false)}
-          onError={handleBackendError}
+          onError={() => setLoadError(true)}
         />
       ) : (
-        <>
-          {streamUrl && (
-            <video
-              ref={videoRef}
-              src={streamUrl}
-              preload="metadata"
-              muted
-              playsInline
-              onLoadedMetadata={handleVideoLoadedMetadata}
-              onSeeked={handleVideoSeeked}
-              className="hidden"
-            />
-          )}
-          <canvas ref={canvasRef} className="hidden" />
-          <div className="p-3 rounded-xl bg-ucd-surface/60 border border-ucd-border flex flex-col items-center justify-center gap-1">
-            {isGenerating ? (
-              <Loader2 className="w-6 h-6 text-rose-400 animate-spin" />
-            ) : (
-              <Film className="w-8 h-8 text-rose-400" />
-            )}
-          </div>
-        </>
+        <div className="p-3 rounded-xl bg-ucd-surface/60 border border-ucd-border flex items-center justify-center">
+          <Film className="w-8 h-8 text-rose-400" />
+        </div>
       )}
 
       {/* Film Overlay Icon */}

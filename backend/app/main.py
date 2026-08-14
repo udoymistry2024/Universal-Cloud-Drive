@@ -46,8 +46,21 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Error initializing Database Health Monitor: {e}")
 
+    # Startup: Start Background Thumbnail Scanner
+    try:
+        from app.thumbnail_scanner import thumbnail_scanner
+        thumbnail_scanner.start()
+    except Exception as e:
+        print(f"Error starting Background Thumbnail Scanner: {e}")
 
     yield
+
+    # Shutdown: Stop Background Thumbnail Scanner
+    try:
+        from app.thumbnail_scanner import thumbnail_scanner
+        thumbnail_scanner.stop()
+    except Exception:
+        pass
 
     # Shutdown: Stop cleanup scheduler
     if scheduler.running:

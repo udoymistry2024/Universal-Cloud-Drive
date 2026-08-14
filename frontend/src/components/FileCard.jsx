@@ -481,7 +481,7 @@ export const FileCard = ({ file, index = 0, onPreview }) => {
             {category === 'image' && thumbnailUrl && !imgError ? (
               <img
                 src={thumbnailUrl}
-                alt={fileName}
+                alt=""
                 className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                 loading={isAboveTheFold ? "eager" : "lazy"}
                 fetchPriority={isAboveTheFold ? "high" : "low"}
