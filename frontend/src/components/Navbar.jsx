@@ -141,7 +141,7 @@ export const Navbar = ({ onToggleSidebar, sidebarOpen, onOpenDeleteAccount }) =>
           signOut?.()
         }}
         title="Sign Out of Universal Cloud Drive?"
-        message={`Are you sure you want to sign out of @${user?.telegram_username || 'your account'}? You will need your Telegram OTP to log back in.`}
+        message={`Are you sure you want to sign out of @${user?.telegram_username || 'your account'}? You will need to sign in again to access your cloud storage.`}
         confirmText="Sign Out"
         confirmStyle="danger"
       />
