@@ -143,48 +143,78 @@ export const Dashboard = () => {
   const getAllFilesFromDataTransfer = async (dataTransferItems) => {
     const filesWithPaths = []
 
-    const traverseEntry = (entry, path = '') => {
+    const readAllDirectoryEntries = (dirReader) => {
+      const entries = []
       return new Promise((resolve) => {
-        if (entry.isFile) {
-          entry.file((file) => {
-            const relativePath = path ? `${path}/${file.name}` : file.name
-            Object.defineProperty(file, 'relativePath', {
-              value: relativePath,
-              writable: true
-            })
-            filesWithPaths.push(file)
-            resolve()
-          })
-        } else if (entry.isDirectory) {
-          const dirReader = entry.createReader()
-          const readEntries = () => {
-            dirReader.readEntries(async (entries) => {
-              if (entries.length === 0) {
-                resolve()
+        const readBatch = () => {
+          dirReader.readEntries(
+            (batch) => {
+              if (!batch || batch.length === 0) {
+                resolve(entries)
               } else {
-                const newPath = path ? `${path}/${entry.name}` : entry.name
-                for (const subEntry of entries) {
-                  await traverseEntry(subEntry, newPath)
-                }
-                await readEntries()
-                resolve()
+                entries.push(...batch)
+                readBatch()
               }
-            })
-          }
-          readEntries()
-        } else {
-          resolve()
+            },
+            (err) => {
+              console.error("Error reading directory batch:", err)
+              resolve(entries)
+            }
+          )
         }
+        readBatch()
       })
     }
 
-    const promises = []
+    const traverseEntry = async (entry, path = '') => {
+      if (!entry) return
+
+      if (entry.isFile) {
+        await new Promise((resolve) => {
+          entry.file(
+            (file) => {
+              const relativePath = path ? `${path}/${file.name}` : file.name
+              try {
+                Object.defineProperty(file, 'relativePath', {
+                  value: relativePath,
+                  writable: true,
+                  configurable: true
+                })
+                Object.defineProperty(file, 'webkitRelativePath', {
+                  value: relativePath,
+                  writable: true,
+                  configurable: true
+                })
+              } catch (e) {
+                file.relativePath = relativePath
+              }
+              filesWithPaths.push(file)
+              resolve()
+            },
+            (err) => {
+              console.error(`Error accessing file ${entry.name}:`, err)
+              resolve()
+            }
+          )
+        })
+      } else if (entry.isDirectory) {
+        const currentPath = path ? `${path}/${entry.name}` : entry.name
+        const dirReader = entry.createReader()
+        const entries = await readAllDirectoryEntries(dirReader)
+
+        if (entries.length > 0) {
+          await Promise.all(entries.map((subEntry) => traverseEntry(subEntry, currentPath)))
+        }
+      }
+    }
+
+    const entriesToTraverse = []
     for (let i = 0; i < dataTransferItems.length; i++) {
       const item = dataTransferItems[i]
       if (item.kind === 'file') {
         const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null
         if (entry) {
-          promises.push(traverseEntry(entry))
+          entriesToTraverse.push(entry)
         } else {
           const file = item.getAsFile()
           if (file) filesWithPaths.push(file)
@@ -192,7 +222,7 @@ export const Dashboard = () => {
       }
     }
 
-    await Promise.all(promises)
+    await Promise.all(entriesToTraverse.map((entry) => traverseEntry(entry)))
     return filesWithPaths
   }
 
