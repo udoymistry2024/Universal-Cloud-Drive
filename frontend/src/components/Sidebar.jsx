@@ -58,7 +58,7 @@ export const Sidebar = ({ isOpen, onClose, onOpenNewFolder, onRequestSpace }) =>
           fixed md:static inset-y-0 left-0 z-50 md:z-auto
           w-64 md:w-56 lg:w-60 h-screen md:h-[calc(100vh-3.5rem)]
           p-3 flex flex-col
-          bg-surface-texture border-r border-ucd-border
+          bg-slate-950/60 backdrop-blur-xl border-r border-ucd-border/70
           select-none overflow-y-auto transition-transform duration-300 ease-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}

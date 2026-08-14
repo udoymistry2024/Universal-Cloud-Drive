@@ -276,7 +276,7 @@ export const Dashboard = () => {
 
   return (
     <div
-      className="dark min-h-screen bg-firebase-texture"
+      className="dark min-h-screen bg-supabase-grid"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -292,7 +292,7 @@ export const Dashboard = () => {
         </div>
       )}
 
-      <div className="bg-ucd-bg text-ucd-text flex flex-col min-h-screen">
+      <div className="bg-transparent text-ucd-text flex flex-col min-h-screen">
         <Navbar
           onToggleSidebar={() => setSidebarOpen((v) => !v)}
           sidebarOpen={sidebarOpen}
