@@ -437,8 +437,49 @@ async def upload_file(
             except Exception:
                 pass
 
+async def async_pregenerate_folder_thumbnails(files: List[dict]):
+    """Background Worker: Pre-generates and caches thumbnails for all video/image files in folder."""
+    for f in files:
+        f_id = f.get("id")
+        if not f_id:
+            continue
+        thumb_path = os.path.join(THUMBNAIL_DIR, f"{f_id}.jpg")
+        if os.path.exists(thumb_path) and os.path.getsize(thumb_path) > 0:
+            continue  # Already cached on disk in 0ms!
+
+        mime = (f.get("mime_type") or "").lower()
+        name = f.get("name") or ""
+        guessed_type, _ = mimetypes.guess_type(name)
+        effective_mime = (guessed_type if not mime or mime in ["application/octet-stream", "binary/octet-stream"] else mime).lower()
+
+        if effective_mime.startswith("video/") or effective_mime.startswith("image/"):
+            tg_msg_id = f.get("telegram_message_id")
+            if not tg_msg_id:
+                continue
+            temp_download_path = os.path.join(THUMBNAIL_DIR, f"temp_{f_id}")
+            try:
+                if effective_mime.startswith("image/"):
+                    await telegram_service.download_to_file(int(tg_msg_id), temp_download_path)
+                    if os.path.exists(temp_download_path) and os.path.getsize(temp_download_path) > 0:
+                        generate_local_thumbnail(temp_download_path, f_id, effective_mime, name)
+                elif effective_mime.startswith("video/"):
+                    await telegram_service.download_thumbnail_fast(int(tg_msg_id), temp_download_path, max_partial_bytes=5120*1024)
+                    if os.path.exists(temp_download_path) and os.path.getsize(temp_download_path) > 0:
+                        generate_local_thumbnail(temp_download_path, f_id, effective_mime, name)
+                    if not os.path.exists(thumb_path) or os.path.getsize(thumb_path) == 0:
+                        await telegram_service.download_to_file(int(tg_msg_id), temp_download_path)
+                        if os.path.exists(temp_download_path) and os.path.getsize(temp_download_path) > 0:
+                            generate_local_thumbnail(temp_download_path, f_id, effective_mime, name)
+            except Exception as e:
+                logger.warning(f"[PREGEN_THUMB_ERR] Failed for file {f_id}: {e}")
+            finally:
+                if os.path.exists(temp_download_path):
+                    try: os.remove(temp_download_path)
+                    except Exception: pass
+
 @router.get("/list")
 async def list_files(
+    background_tasks: BackgroundTasks,
     folder_id: Optional[str] = Query(None),
     is_starred: Optional[bool] = Query(None),
     is_trash: Optional[bool] = Query(False),
@@ -451,17 +492,20 @@ async def list_files(
     all_files = res.data or []
 
     if is_trash:
-        return [f for f in all_files if f.get("is_trash") is True or f.get("is_trash") == "true"]
-
-    # Active files (is_trash is False, None, or missing)
-    active_files = [f for f in all_files if f.get("is_trash") is not True and f.get("is_trash") != "true"]
-
-    if is_starred is not None:
-        return [f for f in active_files if f.get("is_starred") == is_starred or (is_starred is False and not f.get("is_starred"))]
-    elif folder_id is not None and folder_id != "null" and folder_id != "root":
-        return [f for f in active_files if str(f.get("folder_id")) == str(folder_id)]
+        result_files = [f for f in all_files if f.get("is_trash") is True or f.get("is_trash") == "true"]
     else:
-        return [f for f in active_files if not f.get("folder_id") or f.get("folder_id") == "null"]
+        active_files = [f for f in all_files if f.get("is_trash") is not True and f.get("is_trash") != "true"]
+        if is_starred is not None:
+            result_files = [f for f in active_files if f.get("is_starred") == is_starred or (is_starred is False and not f.get("is_starred"))]
+        elif folder_id is not None and folder_id != "null" and folder_id != "root":
+            result_files = [f for f in active_files if str(f.get("folder_id")) == str(folder_id)]
+        else:
+            result_files = [f for f in active_files if not f.get("folder_id") or f.get("folder_id") == "null"]
+
+    # Trigger background thumbnail generation for un-cached videos
+    background_tasks.add_task(async_pregenerate_folder_thumbnails, result_files)
+
+    return result_files
 
 @router.get("/download/{file_id}")
 async def download_file(
@@ -710,10 +754,17 @@ async def get_file_thumbnail(
             if os.path.exists(temp_download_path) and os.path.getsize(temp_download_path) > 0:
                 generate_local_thumbnail(temp_download_path, file_id, mime, file_rec["name"])
         elif mime.startswith("video/"):
-            # Ultra-fast 1.5MB partial chunk download (or 10ms native Telegram thumb)
-            await telegram_service.download_thumbnail_fast(tg_msg_id, temp_download_path, max_partial_bytes=1536*1024)
+            # High-speed native thumb or 5MB chunk download
+            await telegram_service.download_thumbnail_fast(tg_msg_id, temp_download_path, max_partial_bytes=5120*1024)
             if os.path.exists(temp_download_path) and os.path.getsize(temp_download_path) > 0:
                 generate_local_thumbnail(temp_download_path, file_id, mime, file_rec["name"])
+
+            # Ultimate Fallback: Download file content if partial chunk did not contain moov atom
+            if not os.path.exists(thumb_path) or os.path.getsize(thumb_path) == 0:
+                logger.info(f"[THUMB_FALLBACK] Downloading full video content for thumbnail: {file_id}")
+                await telegram_service.download_to_file(tg_msg_id, temp_download_path)
+                if os.path.exists(temp_download_path) and os.path.getsize(temp_download_path) > 0:
+                    generate_local_thumbnail(temp_download_path, file_id, mime, file_rec["name"])
 
         if os.path.exists(temp_download_path):
             try: os.remove(temp_download_path)

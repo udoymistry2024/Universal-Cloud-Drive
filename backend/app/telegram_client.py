@@ -859,10 +859,10 @@ class TelegramService:
                         pass
                 raise
 
-    async def download_thumbnail_fast(self, message_id: int, file_path: str, max_partial_bytes: int = 1536 * 1024) -> bool:
+    async def download_thumbnail_fast(self, message_id: int, file_path: str, max_partial_bytes: int = 5120 * 1024) -> bool:
         """Ultra-fast thumbnail downloader.
         First attempts downloading Telegram's embedded native video thumbnail (~10ms).
-        If unavailable, downloads only the first partial 1.5MB chunk with 512KB MTProto requests."""
+        If unavailable, downloads partial 5MB chunk with 512KB MTProto requests for FFmpeg frame extraction."""
         await self.start()
         channel_id = int(settings.TELEGRAM_CHANNEL_ID)
         try:
@@ -871,25 +871,27 @@ class TelegramService:
                 return False
 
             # 1. High-Speed Native Telegram Video Thumbnail Extraction (~10ms)
+            for t_idx in [-1, 0, 1, 2]:
+                try:
+                    downloaded = await self.app.download_media(msg.media, file=file_path, thumb=t_idx)
+                    if downloaded and os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+                        logger.info(f"[TG_THUMB_NATIVE] Downloaded native Telegram thumb (index {t_idx}) in ~10ms for msg #{message_id}")
+                        return True
+                except Exception:
+                    pass
+
             thumbs = getattr(msg.media, 'thumbs', None) or getattr(getattr(msg.media, 'document', None), 'thumbs', None)
             if thumbs:
                 for thumb in reversed(thumbs):
                     try:
                         downloaded = await self.app.download_media(thumb, file=file_path)
                         if downloaded and os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-                            logger.info(f"[TG_THUMB_FAST] Successfully downloaded native Telegram video thumbnail in ~10ms for msg #{message_id}")
+                            logger.info(f"[TG_THUMB_FAST] Downloaded native thumb object in ~10ms for msg #{message_id}")
                             return True
                     except Exception:
                         pass
 
-            try:
-                downloaded = await self.app.download_media(msg.media, file=file_path, thumb=-1)
-                if downloaded and os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-                    return True
-            except Exception:
-                pass
-
-            # 2. Fast Partial Chunk Download (up to 1.5MB max for video frame extraction)
+            # 2. Fast Partial Chunk Download (up to 5MB max for FFmpeg moov atom & frame extraction)
             total_bytes = 0
             with open(file_path, "wb") as f:
                 async for chunk in self.app.iter_download(msg.media, request_size=512 * 1024):

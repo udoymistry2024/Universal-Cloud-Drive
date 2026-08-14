@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Film } from 'lucide-react'
+import { Film, Loader2 } from 'lucide-react'
 
 export const VideoThumbnail = ({ fileId, fileName, thumbnailUrl, streamUrl, isAboveTheFold }) => {
   const [imgUrl, setImgUrl] = useState(thumbnailUrl)
   const [loadError, setLoadError] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+  const [isGenerating, setIsGenerating] = useState(false)
   const [seeking, setSeeking] = useState(false)
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
@@ -11,6 +13,8 @@ export const VideoThumbnail = ({ fileId, fileName, thumbnailUrl, streamUrl, isAb
   useEffect(() => {
     setImgUrl(thumbnailUrl)
     setLoadError(false)
+    setRetryCount(0)
+    setIsGenerating(false)
     const cacheKey = `ucd_vid_thumb_${fileId}`
     try {
       const cached = sessionStorage.getItem(cacheKey)
@@ -21,7 +25,18 @@ export const VideoThumbnail = ({ fileId, fileName, thumbnailUrl, streamUrl, isAb
   }, [fileId, thumbnailUrl])
 
   const handleBackendError = () => {
-    setLoadError(true)
+    if (retryCount < 4) {
+      setIsGenerating(true)
+      const nextRetry = retryCount + 1
+      setRetryCount(nextRetry)
+      setTimeout(() => {
+        // Append cache-buster timestamp query param to force browser re-request
+        setImgUrl(`${thumbnailUrl}?t=${Date.now()}`)
+      }, 2000 * nextRetry)
+    } else {
+      setIsGenerating(false)
+      setLoadError(true)
+    }
   }
 
   const handleVideoLoadedMetadata = () => {
@@ -46,6 +61,7 @@ export const VideoThumbnail = ({ fileId, fileName, thumbnailUrl, streamUrl, isAb
       if (dataUrl && dataUrl.length > 500) {
         setImgUrl(dataUrl)
         setLoadError(false)
+        setIsGenerating(false)
         try {
           sessionStorage.setItem(`ucd_vid_thumb_${fileId}`, dataUrl)
         } catch (e) {}
@@ -63,6 +79,7 @@ export const VideoThumbnail = ({ fileId, fileName, thumbnailUrl, streamUrl, isAb
           alt={fileName}
           className="w-full h-full object-cover opacity-85 group-hover/vid:opacity-100 transition-opacity"
           loading={isAboveTheFold ? "eager" : "lazy"}
+          onLoad={() => setIsGenerating(false)}
           onError={handleBackendError}
         />
       ) : (
@@ -74,15 +91,18 @@ export const VideoThumbnail = ({ fileId, fileName, thumbnailUrl, streamUrl, isAb
               preload="metadata"
               muted
               playsInline
-              crossOrigin="anonymous"
               onLoadedMetadata={handleVideoLoadedMetadata}
               onSeeked={handleVideoSeeked}
               className="hidden"
             />
           )}
           <canvas ref={canvasRef} className="hidden" />
-          <div className="p-3 rounded-xl bg-ucd-surface/60 border border-ucd-border flex items-center justify-center">
-            <Film className="w-8 h-8 text-rose-400" />
+          <div className="p-3 rounded-xl bg-ucd-surface/60 border border-ucd-border flex flex-col items-center justify-center gap-1">
+            {isGenerating ? (
+              <Loader2 className="w-6 h-6 text-rose-400 animate-spin" />
+            ) : (
+              <Film className="w-8 h-8 text-rose-400" />
+            )}
           </div>
         </>
       )}
