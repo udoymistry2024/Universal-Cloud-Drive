@@ -11,7 +11,7 @@ except ImportError:
     PILImage = None
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 
 from app.supabase_client import supabase_admin
 from app.telegram_client import telegram_service
@@ -359,8 +359,7 @@ async def stream_file_by_share(request: Request, token: str, file_id: str):
     )
 
 
-THUMBNAIL_DIR = "/tmp/ucd_thumbnails"
-os.makedirs(THUMBNAIL_DIR, exist_ok=True)
+# Uses THUMBNAIL_DIR imported from files.py (storage/thumbnails)
 
 @router.get("/thumbnail/{token}/{file_id}")
 async def get_shared_file_thumbnail(token: str, file_id: str):
