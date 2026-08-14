@@ -735,15 +735,25 @@ export const DriveProvider = ({ children }) => {
         }
       }
 
+      // Fetch existing files per folder to skip already-uploaded files (Auto-Resume Smart Sync)
+      const existingFilesPerFolderMap = {}
+      const targetFolderIds = Array.from(new Set(Object.values(pathMap)))
+
+      for (const fId of targetFolderIds) {
+        try {
+          const filesInFolder = await getFiles(fId)
+          existingFilesPerFolderMap[fId] = filesInFolder || []
+        } catch (e) {
+          existingFilesPerFolderMap[fId] = []
+        }
+      }
+
+      let skippedCount = 0
+
       const newItems = rawFiles.map(file => {
         const itemId = Math.random().toString(36).substring(7)
         const uploadId = Math.random().toString(36).substring(7)
         const isTooLarge = file.size > MAX_FILE_SIZE
-        if (isTooLarge) {
-          showToast(`"${file.name}" exceeds the 2GB limit!`, 'error')
-        } else {
-          uploadControllersRef.current.set(itemId, new AbortController())
-        }
 
         let fileFolderId = initialFolderId
         const relPath = file.webkitRelativePath || file.relativePath
@@ -752,6 +762,36 @@ export const DriveProvider = ({ children }) => {
           parts.pop() // remove filename
           const fileFolderPath = parts.join('/')
           fileFolderId = pathMap[fileFolderPath] || initialFolderId
+        }
+
+        // Check if file with exact name & size already exists in target cloud folder
+        const existingFolderFiles = existingFilesPerFolderMap[fileFolderId] || []
+        const isAlreadyUploaded = existingFolderFiles.some(f => f.name.toLowerCase() === file.name.toLowerCase() && !f.is_trash)
+
+        if (isAlreadyUploaded) {
+          skippedCount++
+          return {
+            id: itemId,
+            uploadId,
+            file,
+            fileName: file.name,
+            targetFolderId: fileFolderId,
+            stage: 'cloud',
+            progress: 100,
+            loaded: file.size,
+            total: file.size,
+            speed: 0,
+            etaSeconds: 0,
+            status: 'success',
+            skipped: true,
+            error: null
+          }
+        }
+
+        if (isTooLarge) {
+          showToast(`"${file.name}" exceeds the 2GB limit!`, 'error')
+        } else {
+          uploadControllersRef.current.set(itemId, new AbortController())
         }
 
         return {
@@ -772,7 +812,11 @@ export const DriveProvider = ({ children }) => {
       })
 
       setUploadQueue(prev => [...prev, ...newItems])
-      showToast(`Added ${newItems.length} items to upload queue.`, 'success')
+      if (skippedCount > 0) {
+        showToast(`Skipped ${skippedCount} already uploaded files. Enqueued ${newItems.length - skippedCount} remaining files.`, 'success')
+      } else {
+        showToast(`Added ${newItems.length} items to upload queue.`, 'success')
+      }
     } catch (err) {
       console.error("Reconstruction failed:", err)
       showToast("Reconstruction failed", "error")
@@ -879,6 +923,46 @@ export const DriveProvider = ({ children }) => {
     processUpload(nextItem)
   }, [uploadQueue, refreshUser, fetchDriveContent])
 
+  const [isPausedAll, setIsPausedAll] = useState(false)
+
+  const pauseUpload = (id) => {
+    const controller = uploadControllersRef.current.get(id)
+    if (controller) {
+      try { controller.abort() } catch (e) {}
+    }
+    setUploadQueue(prev => prev.map(u => u.id === id ? { ...u, status: 'paused', speed: 0, etaSeconds: 0 } : u))
+  }
+
+  const resumeUpload = (id) => {
+    uploadControllersRef.current.set(id, new AbortController())
+    setUploadQueue(prev => prev.map(u => u.id === id ? { ...u, status: 'queued', speed: 0, etaSeconds: 0 } : u))
+  }
+
+  const pauseAllUploads = () => {
+    setIsPausedAll(true)
+    const safeQueue = Array.isArray(uploadQueue) ? uploadQueue : []
+    safeQueue.forEach(u => {
+      if (u.status === 'uploading' || u.status === 'queued') {
+        const controller = uploadControllersRef.current.get(u.id)
+        if (controller) {
+          try { controller.abort() } catch (e) {}
+        }
+      }
+    })
+    setUploadQueue(prev => prev.map(u => (u.status === 'uploading' || u.status === 'queued') ? { ...u, status: 'paused', speed: 0, etaSeconds: 0 } : u))
+  }
+
+  const resumeAllUploads = () => {
+    setIsPausedAll(false)
+    const safeQueue = Array.isArray(uploadQueue) ? uploadQueue : []
+    safeQueue.forEach(u => {
+      if (u.status === 'paused') {
+        uploadControllersRef.current.set(u.id, new AbortController())
+      }
+    })
+    setUploadQueue(prev => prev.map(u => u.status === 'paused' ? { ...u, status: 'queued', speed: 0, etaSeconds: 0 } : u))
+  }
+
   const retryUpload = (id) => {
     setUploadQueue(prev => prev.map(u => {
       if (u.id === id) {
@@ -983,6 +1067,11 @@ export const DriveProvider = ({ children }) => {
       setSearchQuery,
       uploadQueue: uploadQueue || [],
       uploadFiles,
+      pauseUpload,
+      resumeUpload,
+      pauseAllUploads,
+      resumeAllUploads,
+      isPausedAll,
       retryUpload,
       cancelUploadInQueue,
       removeUploadFromQueue,
