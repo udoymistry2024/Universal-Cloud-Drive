@@ -401,6 +401,11 @@ async def upload_file(
             }
             db_res = supabase_admin.table("files").insert(file_data_simple).execute()
             if not db_res.data:
+                # Rollback: Purge orphan Telegram message if DB record fails to save
+                try:
+                    await telegram_service.delete_file_message(tg_result["message_id"])
+                except Exception:
+                    pass
                 if upload_id:
                     upload_progress_store[upload_id] = _progress({"stage": "error", "message": "Database insert failed"})
                 raise HTTPException(status_code=500, detail="Failed to save file record in database.")
