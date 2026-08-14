@@ -1,6 +1,6 @@
 import React from 'react'
 
-export const BrandLogo = ({ size = 'md', showText = true, className = '' }) => {
+export const BrandLogo = ({ size = 'md', showText = true, forceShowText = false, className = '' }) => {
   const iconBoxSizes = {
     sm: 'w-8 h-8 md:w-9 md:h-9',
     md: 'w-10 h-10',
@@ -67,9 +67,9 @@ export const BrandLogo = ({ size = 'md', showText = true, className = '' }) => {
         </div>
       </div>
 
-      {/* Brand Text — Hidden on Mobile screens, visible on Tablet/Desktop */}
+      {/* Brand Text — Hidden on Mobile top navbar, but forceable in mobile sidebar */}
       {showText && (
-        <div className={`hidden sm:flex items-center whitespace-nowrap font-black tracking-tight ${textSizes[size] || textSizes.md} drop-shadow-[0_0_12px_rgba(56,189,248,0.25)]`}>
+        <div className={`${forceShowText ? 'flex' : 'hidden sm:flex'} items-center whitespace-nowrap font-black tracking-tight ${textSizes[size] || textSizes.md} drop-shadow-[0_0_12px_rgba(56,189,248,0.25)]`}>
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-blue-400">
             Universal
           </span>

@@ -67,7 +67,7 @@ export const Sidebar = ({ isOpen, onClose, onOpenNewFolder, onRequestSpace }) =>
         <div className="flex-1 space-y-4">
           {/* Mobile Sidebar Branding Header */}
           <div className="md:hidden px-2 pt-1 pb-3 border-b border-ucd-border/50 mb-3">
-            <BrandLogo size="md" />
+            <BrandLogo size="sm" forceShowText={true} />
           </div>
 
           {/* New Button */}
