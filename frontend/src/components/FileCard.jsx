@@ -100,6 +100,7 @@ export const FileCard = ({ file, index = 0, onPreview }) => {
 
   const handleSoftDelete = async (e) => {
     e?.stopPropagation?.()
+    if (typeof setActiveMenuId === 'function') setActiveMenuId(null)
     if (!fileId) return
     removeFileLocally(fileId)
     try {
@@ -114,6 +115,7 @@ export const FileCard = ({ file, index = 0, onPreview }) => {
 
   const handleRestore = async (e) => {
     e?.stopPropagation?.()
+    if (typeof setActiveMenuId === 'function') setActiveMenuId(null)
     if (!fileId) return
     removeFileLocally(fileId)
     try {
@@ -127,6 +129,7 @@ export const FileCard = ({ file, index = 0, onPreview }) => {
   }
 
   const handleConfirmPermanentDelete = async () => {
+    if (typeof setActiveMenuId === 'function') setActiveMenuId(null)
     if (!fileId) return
     setDeleting(true)
     try {

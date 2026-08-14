@@ -219,10 +219,11 @@ export const DriveProvider = ({ children }) => {
     fetchDriveContent(true)
   }, [fetchDriveContent])
 
-  // Clear selection when navigating or changing tabs
+  // Clear selection and dropdown menu when navigating or changing tabs
   useEffect(() => {
     setSelectedItems([])
     setSelectionMode(false)
+    setActiveMenuId(null)
   }, [currentFolder?.id, activeTab])
 
   // Helper to sync state with browser history (PushState)

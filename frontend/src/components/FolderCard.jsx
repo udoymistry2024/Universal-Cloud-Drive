@@ -39,6 +39,7 @@ export const FolderCard = ({ folder }) => {
   // Soft Delete (move to Trash)
   const handleSoftDelete = async (e) => {
     e?.stopPropagation()
+    if (typeof setActiveMenuId === 'function') setActiveMenuId(null)
     if (!folderId) return
     removeFolderLocally(folderId)
     try {
@@ -54,6 +55,7 @@ export const FolderCard = ({ folder }) => {
   // Restore from Trash
   const handleRestore = async (e) => {
     e?.stopPropagation()
+    if (typeof setActiveMenuId === 'function') setActiveMenuId(null)
     if (!folderId) return
     removeFolderLocally(folderId)
     try {
@@ -68,6 +70,7 @@ export const FolderCard = ({ folder }) => {
 
   // Permanent Delete
   const handleConfirmPermanentDelete = async () => {
+    if (typeof setActiveMenuId === 'function') setActiveMenuId(null)
     if (!folderId) return
     setDeleting(true)
     try {
