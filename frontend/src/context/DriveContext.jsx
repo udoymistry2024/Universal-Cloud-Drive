@@ -970,6 +970,13 @@ export const DriveProvider = ({ children }) => {
 
   const [isPausedAll, setIsPausedAll] = useState(false)
 
+  const notifyCancelUploadOnBackend = (uploadId) => {
+    if (!uploadId) return
+    try {
+      fetch(`${API_BASE_URL}/api/files/cancel-upload/${uploadId}`, { method: 'POST' }).catch(() => {})
+    } catch (e) {}
+  }
+
   const notifyResumeUploadOnBackend = (uploadId) => {
     if (!uploadId) return
     try {
