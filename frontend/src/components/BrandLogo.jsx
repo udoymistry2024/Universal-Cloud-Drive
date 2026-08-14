@@ -67,9 +67,9 @@ export const BrandLogo = ({ size = 'md', showText = true, className = '' }) => {
         </div>
       </div>
 
-      {/* Brand Text — Integrated ON 1 SINGLE HORIZONTAL LINE */}
+      {/* Brand Text — Hidden on Mobile screens, visible on Tablet/Desktop */}
       {showText && (
-        <div className={`flex items-center whitespace-nowrap font-black tracking-tight ${textSizes[size] || textSizes.md} drop-shadow-[0_0_12px_rgba(56,189,248,0.25)]`}>
+        <div className={`hidden sm:flex items-center whitespace-nowrap font-black tracking-tight ${textSizes[size] || textSizes.md} drop-shadow-[0_0_12px_rgba(56,189,248,0.25)]`}>
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-blue-400">
             Universal
           </span>
