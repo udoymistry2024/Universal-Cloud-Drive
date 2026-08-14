@@ -404,6 +404,20 @@ export const Dashboard = () => {
               </div>
             </div>
 
+            {/* 30-Day Trash Auto-Cleanup Information Banner */}
+            {activeTab === 'trash' && (
+              <div className="mb-4 p-3 bg-slate-900/60 border border-cyan-500/20 backdrop-blur-xl rounded-2xl flex items-center justify-between text-xs text-ucd-muted shadow-sm">
+                <div className="flex items-center space-x-2.5">
+                  <div className="p-1.5 bg-rose-500/10 rounded-lg shrink-0">
+                    <Trash2 className="w-4 h-4 text-rose-400" />
+                  </div>
+                  <span>
+                    Items in Trash will be automatically and permanently deleted after <strong className="text-white">30 days</strong>.
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Loading */}
             {loading ? (
               <div className="flex items-center justify-center py-20 text-ucd-accent space-x-3">
