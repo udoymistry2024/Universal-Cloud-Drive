@@ -86,11 +86,11 @@ export const Navbar = ({ onToggleSidebar, sidebarOpen, onOpenDeleteAccount }) =>
         <div className="relative" ref={userMenuRef}>
           <button
             onClick={() => setShowUserMenu((v) => !v)}
-            className="group relative p-0.5 rounded-full bg-gradient-to-tr from-cyan-400 via-sky-400 to-blue-600 hover:from-cyan-300 hover:to-blue-500 shadow-glow hover:shadow-glow-lg transition-all duration-300 transform active:scale-95 cursor-pointer"
+            className="group relative p-0.5 rounded-full bg-gradient-to-tr from-cyan-300 via-sky-400 to-blue-500 shadow-glow hover:shadow-glow-lg transition-all duration-300 transform active:scale-95 cursor-pointer"
             title={`Account: @${user?.telegram_username || 'User'}`}
           >
-            <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-cyan-400/40 text-cyan-400 flex items-center justify-center font-black text-xs md:text-sm tracking-wider shadow-inner group-hover:text-white transition-colors">
-              {user?.telegram_username?.charAt(0).toUpperCase() || <User className="w-4 h-4 text-cyan-400" />}
+            <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-gradient-to-br from-cyan-500 via-sky-500 to-blue-600 border border-cyan-200/50 text-white flex items-center justify-center font-black text-xs md:text-sm tracking-wider shadow-glow-btn group-hover:from-cyan-400 group-hover:to-blue-500 transition-all">
+              {user?.telegram_username?.charAt(0).toUpperCase() || <User className="w-4 h-4 text-white" />}
             </div>
             {/* Active Status Indicator Dot */}
             <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 border-2 border-slate-950 rounded-full shadow-sm" />
