@@ -774,8 +774,9 @@ class TelegramService:
                                 pass
 
 
-                # Worker pool with concurrency limit
-                semaphore = asyncio.Semaphore(12)
+                # Maximum Throughput Worker Pool (24 parallel streams for 100% bandwidth saturation)
+                worker_concurrency = 24 if file_size > 10 * 1024 * 1024 else 12
+                semaphore = asyncio.Semaphore(worker_concurrency)
 
                 async def worker(part_index, part_bytes):
                     async with semaphore:

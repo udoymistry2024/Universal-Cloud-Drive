@@ -25,7 +25,15 @@ export const UploadProgress = () => {
   const activeCount = safeQueue.filter(u => u?.status === 'uploading' || u?.status === 'queued').length
   const pausedCount = safeQueue.filter(u => u?.status === 'paused').length
   const failedOrCancelledCount = safeQueue.filter(u => u?.status === 'cancelled' || u?.status === 'error').length
-  const hasActiveOrPaused = activeCount > 0 || pausedCount > 0
+  const isCloseDisabled = activeCount > 0
+
+  const handleClosePanel = () => {
+    if (activeCount > 0) return
+    if (pausedCount > 0) {
+      pauseAllUploads?.()
+    }
+    clearUploadQueue?.()
+  }
 
   return (
     <div className="fixed bottom-4 right-4 w-84 md:w-96 bg-ucd-surface rounded-2xl shadow-2xl border border-ucd-border overflow-hidden z-50 animate-in slide-in-from-bottom-4 duration-300 select-none">
@@ -89,18 +97,14 @@ export const UploadProgress = () => {
           </button>
           
           <button
-            onClick={() => {
-              if (!hasActiveOrPaused) {
-                clearUploadQueue?.()
-              }
-            }}
-            disabled={hasActiveOrPaused}
-            title={hasActiveOrPaused ? "Cannot close panel while uploads are active or paused" : "Close panel"}
+            onClick={handleClosePanel}
+            disabled={isCloseDisabled}
+            title={isCloseDisabled ? "Cannot close panel while uploads are active" : "Close and clear upload panel"}
             aria-label="Close upload progress panel"
             className={`p-1 rounded transition-colors ${
-              hasActiveOrPaused
+              isCloseDisabled
                 ? 'opacity-30 cursor-not-allowed text-ucd-dim'
-                : 'text-ucd-dim hover:text-ucd-rose hover:bg-ucd-rose/20'
+                : 'text-ucd-dim hover:text-ucd-rose hover:bg-ucd-rose/20 cursor-pointer'
             }`}
           >
             <X className="w-4 h-4" />
