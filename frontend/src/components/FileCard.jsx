@@ -9,6 +9,7 @@ import { useClickOutside } from '../hooks/useClickOutside'
 import { useLongPress } from '../hooks/useLongPress'
 import { ConfirmModal } from './ConfirmModal'
 import { BottomSheet, BottomSheetItem } from './BottomSheet'
+import { VideoThumbnail } from './VideoThumbnail'
 
 const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 768
 
@@ -487,23 +488,15 @@ export const FileCard = ({ file, index = 0, onPreview }) => {
                 decoding={isAboveTheFold ? "sync" : "async"}
                 onError={() => setImgError(true)}
               />
-            ) : category === 'video' && thumbnailUrl && !vidError ? (
-              <div className="relative w-full h-full flex items-center justify-center bg-black/40 overflow-hidden group/vid">
-                <img
-                  src={thumbnailUrl}
-                  alt={fileName}
-                  className="w-full h-full object-cover opacity-80 group-hover/vid:opacity-100 transition-opacity"
-                  loading={isAboveTheFold ? "eager" : "lazy"}
-                  fetchPriority={isAboveTheFold ? "high" : "low"}
-                  decoding={isAboveTheFold ? "sync" : "async"}
-                  onError={() => setVidError(true)}
-                />
-                <div className="absolute p-2 rounded-full bg-black/60 backdrop-blur border border-white/20 text-rose-400 shadow-glow group-hover/vid:scale-110 transition-transform">
-                  <Film className="w-4 h-4" />
-                </div>
-              </div>
+            ) : category === 'video' ? (
+              <VideoThumbnail
+                fileId={fileId}
+                fileName={fileName}
+                thumbnailUrl={thumbnailUrl}
+                streamUrl={streamUrl}
+                isAboveTheFold={isAboveTheFold}
+              />
             ) : (
-
               <div className="p-3 rounded-xl bg-ucd-surface/60 border border-ucd-border">
                 {renderIcon("w-8 h-8 md:w-10 md:h-10")}
               </div>

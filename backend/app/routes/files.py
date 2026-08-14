@@ -75,21 +75,67 @@ def generate_local_thumbnail(source_path: str, file_id: str, mime_type: str, fil
                     logger.warning(f"[THUMB] PIL image thumbnail failed for {file_id}: {img_err}")
         elif effective_mime.startswith("video/"):
             try:
-                cmd = [
-                    "ffmpeg", "-y",
-                    "-ss", "00:00:01.000",
+                ffmpeg_exe = "ffmpeg"
+                try:
+                    import imageio_ffmpeg
+                    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+                except Exception:
+                    pass
+
+                import subprocess
+
+                # Primary attempt: Extract frame at 10 seconds offset
+                cmd_10s = [
+                    ffmpeg_exe, "-y",
+                    "-ss", "00:00:10.000",
                     "-i", source_path,
                     "-vframes", "1",
-                    "-vf", "scale=320:-1",
-                    "-q:v", "5",
+                    "-vf", "scale=360:-1",
+                    "-q:v", "4",
                     thumb_path
                 ]
-                import subprocess
-                subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+                subprocess.run(cmd_10s, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=8)
+
+                # Fallback 1: If video is shorter than 10s, try at 1 second offset
+                if not os.path.exists(thumb_path) or os.path.getsize(thumb_path) == 0:
+                    cmd_1s = [
+                        ffmpeg_exe, "-y",
+                        "-ss", "00:00:01.000",
+                        "-i", source_path,
+                        "-vframes", "1",
+                        "-vf", "scale=360:-1",
+                        "-q:v", "4",
+                        thumb_path
+                    ]
+                    subprocess.run(cmd_1s, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=8)
+
+                # Fallback 2: OpenCV Frame Extractor
+                if not os.path.exists(thumb_path) or os.path.getsize(thumb_path) == 0:
+                    try:
+                        import cv2
+                        cap = cv2.VideoCapture(source_path)
+                        if cap.isOpened():
+                            fps = cap.get(cv2.CAP_PROP_FPS) or 25
+                            # Seek to 10s or frame 250
+                            cap.set(cv2.CAP_PROP_POS_FRAMES, int(fps * 10))
+                            ret, frame = cap.read()
+                            if not ret:
+                                cap.set(cv2.CAP_PROP_POS_FRAMES, int(fps * 1))
+                                ret, frame = cap.read()
+                            if ret and frame is not None:
+                                h, w = frame.shape[:2]
+                                target_w = 360
+                                target_h = int(h * (360 / w))
+                                resized = cv2.resize(frame, (target_w, target_h), interpolation=cv2.INTER_AREA)
+                                cv2.imwrite(thumb_path, resized, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+                            cap.release()
+                    except Exception as cv_err:
+                        logger.warning(f"[THUMB] OpenCV fallback failed for {file_id}: {cv_err}")
+
                 if os.path.exists(thumb_path) and os.path.getsize(thumb_path) > 0:
-                    logger.info(f"[THUMB] Successfully generated instant video thumbnail for {file_id}")
+                    logger.info(f"[THUMB] Successfully generated 10s video thumbnail for {file_id}")
             except Exception as vid_err:
-                logger.warning(f"[THUMB] FFmpeg video frame extraction failed for {file_id}: {vid_err}")
+                logger.warning(f"[THUMB] Video frame extraction failed for {file_id}: {vid_err}")
 
         # Enforce 50MB disk cap
         prune_thumbnail_cache()
