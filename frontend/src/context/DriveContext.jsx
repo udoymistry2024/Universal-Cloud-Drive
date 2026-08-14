@@ -969,8 +969,21 @@ export const DriveProvider = ({ children }) => {
 
   const [isPausedAll, setIsPausedAll] = useState(false)
 
+  const notifyCancelUploadOnBackend = (uploadId) => {
+    if (!uploadId) return
+    try {
+      fetch(`${API_BASE_URL}/api/files/cancel-upload/${uploadId}`, { method: 'POST' }).catch(() => {})
+    } catch (e) {}
+  }
+
   const pauseUpload = (id) => {
-    setUploadQueue(prev => prev.map(u => u.id === id ? { ...u, status: 'paused', speed: 0, etaSeconds: 0 } : u))
+    setUploadQueue(prev => prev.map(u => {
+      if (u.id === id) {
+        notifyCancelUploadOnBackend(u.uploadId)
+        return { ...u, status: 'paused', speed: 0, etaSeconds: 0 }
+      }
+      return u
+    }))
     const controller = uploadControllersRef.current.get(id)
     if (controller) {
       try { controller.abort() } catch (e) {}
@@ -984,16 +997,17 @@ export const DriveProvider = ({ children }) => {
 
   const pauseAllUploads = () => {
     setIsPausedAll(true)
-    setUploadQueue(prev => prev.map(u => (u.status === 'uploading' || u.status === 'queued') ? { ...u, status: 'paused', speed: 0, etaSeconds: 0 } : u))
     const safeQueue = Array.isArray(uploadQueue) ? uploadQueue : []
     safeQueue.forEach(u => {
       if (u.status === 'uploading' || u.status === 'queued') {
+        notifyCancelUploadOnBackend(u.uploadId)
         const controller = uploadControllersRef.current.get(u.id)
         if (controller) {
           try { controller.abort() } catch (e) {}
         }
       }
     })
+    setUploadQueue(prev => prev.map(u => (u.status === 'uploading' || u.status === 'queued') ? { ...u, status: 'paused', speed: 0, etaSeconds: 0 } : u))
   }
 
   const resumeAllUploads = () => {
@@ -1056,6 +1070,10 @@ export const DriveProvider = ({ children }) => {
   }
 
   const cancelUploadInQueue = (id) => {
+    const item = (uploadQueue || []).find(u => u.id === id)
+    if (item) {
+      notifyCancelUploadOnBackend(item.uploadId)
+    }
     const controller = uploadControllersRef.current.get(id)
     if (controller) {
       try { controller.abort() } catch (e) {}

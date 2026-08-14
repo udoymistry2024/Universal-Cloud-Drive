@@ -160,6 +160,15 @@ MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024  # 2,147,483,648 bytes
 # In-memory store for live Server-Sent Events (SSE) progress tracking
 upload_progress_store = {}
 UPLOAD_PROGRESS_TTL = 600  # Auto-cleanup after 10 minutes
+cancelled_upload_ids = set()
+
+@router.post("/cancel-upload/{upload_id}")
+async def cancel_upload_endpoint(upload_id: str):
+    """Signal endpoint called by frontend when an upload is cancelled or paused by user."""
+    cancelled_upload_ids.add(upload_id)
+    if upload_id in upload_progress_store:
+        upload_progress_store[upload_id] = _progress({"stage": "cancelled"})
+    return {"status": "ok", "message": f"Upload {upload_id} marked as cancelled"}
 
 def cleanup_upload_progress(upload_id: str):
     """Remove upload progress entry to free memory."""
@@ -336,6 +345,8 @@ async def upload_file(
 
         def tg_progress_callback(current, total):
             nonlocal last_time, last_current
+            if upload_id and upload_id in cancelled_upload_ids:
+                raise asyncio.CancelledError("Upload cancelled by client")
             now = time.time()
             time_diff = now - last_time
             speed = 0
@@ -354,12 +365,19 @@ async def upload_file(
                     "percent": percent
                 })
 
+        tg_result = None
         try:
             tg_result = await telegram_service.upload_file(
                 file_path=temp_file_path,
                 filename=safe_filename,
                 progress_callback=tg_progress_callback
             )
+        except asyncio.CancelledError:
+            print(f"🛑 Telegram upload cancelled mid-flight by client for: {safe_filename}")
+            if upload_id:
+                cancelled_upload_ids.discard(upload_id)
+                upload_progress_store[upload_id] = _progress({"stage": "cancelled"})
+            raise HTTPException(status_code=499, detail="Client cancelled upload")
         except Exception as tg_err:
             err_str = str(tg_err)
             err_lower = err_str.lower()
@@ -369,6 +387,20 @@ async def upload_file(
             if upload_id:
                 upload_progress_store[upload_id] = _progress({"stage": "error", "message": err_str})
             raise HTTPException(status_code=500, detail=err_str)
+
+        # Check if client cancelled/paused during or right after Telegram transfer
+        is_client_aborted = (await request.is_disconnected()) or (upload_id and upload_id in cancelled_upload_ids)
+        if is_client_aborted:
+            print(f"🛑 Upload cancelled by client after Telegram transfer. Purging orphan message {tg_result.get('message_id')}...")
+            if tg_result and tg_result.get("message_id"):
+                try:
+                    await telegram_service.delete_file_message(tg_result["message_id"])
+                except Exception as del_err:
+                    print(f"Failed to delete orphan Telegram message: {del_err}")
+            if upload_id:
+                cancelled_upload_ids.discard(upload_id)
+                upload_progress_store[upload_id] = _progress({"stage": "cancelled"})
+            raise HTTPException(status_code=499, detail="Client cancelled upload")
 
         clean_folder_id = folder_id if folder_id and folder_id.strip() and folder_id != "null" else None
 
@@ -426,11 +458,18 @@ async def upload_file(
         raise
     except Exception as general_err:
         print(f"Unhandled upload error: {general_err}")
+        if 'tg_result' in locals() and tg_result and isinstance(tg_result, dict) and tg_result.get("message_id"):
+            try:
+                await telegram_service.delete_file_message(tg_result["message_id"])
+            except Exception:
+                pass
         if upload_id:
             upload_progress_store[upload_id] = _progress({"stage": "error", "message": str(general_err)})
         raise HTTPException(status_code=500, detail=f"Upload processing error: {str(general_err)}")
 
     finally:
+        if upload_id:
+            cancelled_upload_ids.discard(upload_id)
         if os.path.exists(temp_file_path):
             try:
                 os.remove(temp_file_path)
