@@ -21,7 +21,7 @@ export const Navbar = ({ onToggleSidebar, sidebarOpen, onOpenDeleteAccount }) =>
   }
 
   return (
-    <header className="h-14 border-b border-ucd-border/80 bg-slate-950/70 backdrop-blur-xl px-3 md:px-5 flex items-center justify-between sticky top-0 z-30 select-none">
+    <header className="h-14 border-b border-cyan-500/20 bg-slate-950/20 backdrop-blur-md px-3 md:px-5 flex items-center justify-between sticky top-0 z-30 select-none">
       {/* Left: Hamburger + Logo */}
       <div className="flex items-center space-x-2 md:space-x-3 shrink-0">
         <button
