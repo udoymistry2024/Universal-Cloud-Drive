@@ -26,19 +26,11 @@ export const FloatingActionButton = ({ onOpenNewFolder }) => {
     }
   }
 
-  const handleRefresh = async () => {
+  const handleRefresh = () => {
     setIsSpinning(true)
-    try {
-      if (refreshContent) {
-        await refreshContent(true)
-      } else {
-        window.location.reload()
-      }
-    } catch (e) {
+    setTimeout(() => {
       window.location.reload()
-    } finally {
-      setTimeout(() => setIsSpinning(false), 700)
-    }
+    }, 150)
   }
 
   return (
