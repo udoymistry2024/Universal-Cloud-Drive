@@ -18,9 +18,10 @@ try:
 except ImportError:
     PILImage = None
 
-THUMBNAIL_DIR = "/tmp/ucd_thumbnails"
+PROJECT_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+THUMBNAIL_DIR = os.path.join(PROJECT_ROOT_DIR, "storage", "thumbnails")
 os.makedirs(THUMBNAIL_DIR, exist_ok=True)
-MAX_THUMB_CACHE_SIZE_BYTES = 50 * 1024 * 1024  # Strict 50 MB Disk Cap
+MAX_THUMB_CACHE_SIZE_BYTES = 2000 * 1024 * 1024  # 2 GB Permanent High-Speed Disk Cache
 
 def prune_thumbnail_cache():
     """LRU Cache Trimmer: Ensures total thumbnail cache on server disk never exceeds 50MB."""
