@@ -4,6 +4,7 @@ import { getPublicFileInfo, getPublicFolderInfo, getPublicDownloadUrl, getPublic
 
 import { formatBytes, getFileCategory } from '../lib/fileUtils'
 import { PreviewModal } from './PreviewModal'
+import { BrandLogo } from './BrandLogo'
 
 export const PublicShareView = () => {
   const [loading, setLoading] = useState(true)
@@ -101,17 +102,12 @@ export const PublicShareView = () => {
   const rootToken = shareToken || shareData?.root_folder?.share_token
 
   return (
-    <div className="dark bg-ucd-bg min-h-screen text-ucd-text flex flex-col select-none">
+    <div className="dark bg-firebase-texture min-h-screen text-ucd-text flex flex-col select-none">
       {/* Header */}
       <header className="h-14 border-b border-ucd-border bg-ucd-bg/95 backdrop-blur-sm px-4 md:px-6 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center space-x-2.5">
-          <div className="p-1.5 bg-ucd-accent/10 border border-ucd-accent/20 rounded-xl">
-            <Cloud className="w-5 h-5 text-ucd-accent" />
-          </div>
-          <span className="font-semibold text-sm md:text-base tracking-tight">
-            <span className="text-ucd-accent">Universal</span>
-            <span className="text-ucd-text ml-1">Cloud Drive Shared</span>
-          </span>
+          <BrandLogo size="sm" />
+          <span className="text-xs bg-ucd-accent/15 border border-ucd-accent/30 text-ucd-accent px-2 py-0.5 rounded-md font-medium">Shared</span>
         </div>
 
         <a

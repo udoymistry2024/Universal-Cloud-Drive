@@ -276,7 +276,7 @@ export const Dashboard = () => {
 
   return (
     <div
-      className="dark"
+      className="dark min-h-screen bg-firebase-texture"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

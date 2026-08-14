@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Cloud, Lock, AtSign, ArrowRight, AlertCircle, KeyRound, MessageSquare, RefreshCw, CheckCircle2, Eye, EyeOff, UserX } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { requestForgotPasswordOtpApi, resetPasswordApi, getSignupStatusApi } from '../lib/api'
+import { BrandLogo } from './BrandLogo'
 
 export const AuthModal = () => {
   const { signIn, sendOtp, register } = useAuth()
@@ -223,8 +224,8 @@ export const AuthModal = () => {
       <div className="w-full max-w-sm bg-ucd-surface border border-ucd-border rounded-2xl shadow-2xl p-6 md:p-8 relative z-10 my-auto">
         {/* Header */}
         <div className="text-center mb-6">
-          <div className="w-14 h-14 bg-gradient-to-br from-ucd-accent/20 to-ucd-royal/20 border border-ucd-accent/20 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-glow">
-            <Cloud className="w-8 h-8 text-ucd-accent" />
+          <div className="flex justify-center mb-4">
+            <BrandLogo size="lg" />
           </div>
           <h2 className="text-xl font-bold text-ucd-text tracking-tight">
             {mode === 'signup'

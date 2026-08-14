@@ -5,6 +5,7 @@ import { useDrive } from '../context/DriveContext'
 import { useAuth } from '../context/AuthContext'
 import { useClickOutside } from '../hooks/useClickOutside'
 import { formatBytes } from '../lib/fileUtils'
+import { BrandLogo } from './BrandLogo'
 
 export const Sidebar = ({ isOpen, onClose, onOpenNewFolder, onRequestSpace }) => {
   const { activeTab = 'my_drive', setActiveTab, uploadFiles, navigateToFolder } = useDrive() || {}
@@ -21,15 +22,17 @@ export const Sidebar = ({ isOpen, onClose, onOpenNewFolder, onRequestSpace }) =>
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      uploadFiles(e.target.files)
+      uploadFiles?.(e.target.files)
       setShowNewMenu(false)
+      onClose?.()
     }
   }
 
   const handleFolderChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      uploadFiles(e.target.files)
+      uploadFiles?.(e.target.files)
       setShowNewMenu(false)
+      onClose?.()
     }
   }
 
@@ -55,7 +58,7 @@ export const Sidebar = ({ isOpen, onClose, onOpenNewFolder, onRequestSpace }) =>
           fixed md:static inset-y-0 left-0 z-50 md:z-auto
           w-64 md:w-56 lg:w-60 h-screen md:h-[calc(100vh-3.5rem)]
           p-3 flex flex-col
-          bg-ucd-bg border-r border-ucd-border
+          bg-surface-texture border-r border-ucd-border
           select-none overflow-y-auto transition-transform duration-300 ease-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
@@ -63,11 +66,8 @@ export const Sidebar = ({ isOpen, onClose, onOpenNewFolder, onRequestSpace }) =>
         {/* Top section — grows to fill available space */}
         <div className="flex-1 space-y-4">
           {/* Mobile Sidebar Branding Header */}
-          <div className="md:hidden px-2 pt-1 pb-2 border-b border-ucd-border/50 mb-3">
-            <span className="text-base font-bold tracking-tight">
-              <span className="text-ucd-accent">Universal</span>
-              <span className="text-ucd-text ml-1.5">Cloud Drive</span>
-            </span>
+          <div className="md:hidden px-2 pt-1 pb-3 border-b border-ucd-border/50 mb-3">
+            <BrandLogo size="md" />
           </div>
 
           {/* New Button */}

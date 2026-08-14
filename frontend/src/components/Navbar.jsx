@@ -3,6 +3,7 @@ import { Search, LayoutGrid, List, LogOut, Cloud, User, Menu, X, Trash2 } from '
 import { useDrive } from '../context/DriveContext'
 import { useAuth } from '../context/AuthContext'
 import { useClickOutside } from '../hooks/useClickOutside'
+import { BrandLogo } from './BrandLogo'
 
 export const Navbar = ({ onToggleSidebar, sidebarOpen, onOpenDeleteAccount }) => {
   const { searchQuery = '', setSearchQuery, viewMode = 'grid', setViewMode, navigateToFolder, setActiveTab, clearSelection } = useDrive() || {}
@@ -31,23 +32,13 @@ export const Navbar = ({ onToggleSidebar, sidebarOpen, onOpenDeleteAccount }) =>
           {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
 
-        {/* Clickable Logo — navigates to home */}
+        {/* Clickable Brand Logo & Name — navigates to home */}
         <button
           onClick={handleLogoClick}
-          className="p-1.5 bg-ucd-accent/10 border border-ucd-accent/20 rounded-xl hover:bg-ucd-accent/20 transition-colors cursor-pointer"
+          className="hover:opacity-90 transition-opacity cursor-pointer text-left"
           title="Go to Home"
         >
-          <Cloud className="w-5 h-5 md:w-6 md:h-6 text-ucd-accent" />
-        </button>
-        
-        {/* Clickable Brand Name — navigates to home */}
-        <button
-          onClick={handleLogoClick}
-          className="text-sm md:text-base font-semibold tracking-tight hidden md:inline-block hover:opacity-80 transition-opacity cursor-pointer"
-          title="Go to Home"
-        >
-          <span className="text-ucd-accent">Universal</span>
-          <span className="text-ucd-text ml-1">Cloud Drive</span>
+          <BrandLogo size="sm" />
         </button>
       </div>
 
