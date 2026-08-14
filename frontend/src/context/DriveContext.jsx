@@ -941,8 +941,16 @@ export const DriveProvider = ({ children }) => {
         await fetchDriveContent(false)
       } catch (err) {
         if (err.name === 'CanceledError' || err.name === 'AbortError' || err.code === 'ERR_CANCELED') {
-          console.log(`Upload cancelled by user for "${item.fileName}"`)
-          setUploadQueue(prev => prev.map(u => u.id === item.id ? { ...u, status: 'cancelled', error: 'Upload cancelled' } : u))
+          console.log(`Upload cancelled or paused by user for "${item.fileName}"`)
+          setUploadQueue(prev => prev.map(u => {
+            if (u.id === item.id) {
+              if (u.status === 'paused') {
+                return { ...u, speed: 0, etaSeconds: 0 }
+              }
+              return { ...u, status: 'cancelled', error: 'Upload cancelled' }
+            }
+            return u
+          }))
         } else {
           console.error("Upload error detail:", err)
           const errorMessage = err.response?.data?.detail || err.message || 'Upload failed'
@@ -962,20 +970,21 @@ export const DriveProvider = ({ children }) => {
   const [isPausedAll, setIsPausedAll] = useState(false)
 
   const pauseUpload = (id) => {
+    setUploadQueue(prev => prev.map(u => u.id === id ? { ...u, status: 'paused', speed: 0, etaSeconds: 0 } : u))
     const controller = uploadControllersRef.current.get(id)
     if (controller) {
       try { controller.abort() } catch (e) {}
     }
-    setUploadQueue(prev => prev.map(u => u.id === id ? { ...u, status: 'paused', speed: 0, etaSeconds: 0 } : u))
   }
 
   const resumeUpload = (id) => {
     uploadControllersRef.current.set(id, new AbortController())
-    setUploadQueue(prev => prev.map(u => u.id === id ? { ...u, status: 'queued', speed: 0, etaSeconds: 0 } : u))
+    setUploadQueue(prev => prev.map(u => u.id === id ? { ...u, status: 'queued', speed: 0, etaSeconds: 0, error: null } : u))
   }
 
   const pauseAllUploads = () => {
     setIsPausedAll(true)
+    setUploadQueue(prev => prev.map(u => (u.status === 'uploading' || u.status === 'queued') ? { ...u, status: 'paused', speed: 0, etaSeconds: 0 } : u))
     const safeQueue = Array.isArray(uploadQueue) ? uploadQueue : []
     safeQueue.forEach(u => {
       if (u.status === 'uploading' || u.status === 'queued') {
@@ -985,18 +994,46 @@ export const DriveProvider = ({ children }) => {
         }
       }
     })
-    setUploadQueue(prev => prev.map(u => (u.status === 'uploading' || u.status === 'queued') ? { ...u, status: 'paused', speed: 0, etaSeconds: 0 } : u))
   }
 
   const resumeAllUploads = () => {
     setIsPausedAll(false)
     const safeQueue = Array.isArray(uploadQueue) ? uploadQueue : []
     safeQueue.forEach(u => {
-      if (u.status === 'paused') {
+      if (u.status === 'paused' || u.status === 'cancelled' || u.status === 'error') {
         uploadControllersRef.current.set(u.id, new AbortController())
       }
     })
-    setUploadQueue(prev => prev.map(u => u.status === 'paused' ? { ...u, status: 'queued', speed: 0, etaSeconds: 0 } : u))
+    setUploadQueue(prev => prev.map(u => (u.status === 'paused' || u.status === 'cancelled' || u.status === 'error') ? {
+      ...u,
+      status: 'queued',
+      stage: 'local',
+      progress: 0,
+      loaded: 0,
+      speed: 0,
+      etaSeconds: 0,
+      error: null
+    } : u))
+  }
+
+  const retryAllUploads = () => {
+    setIsPausedAll(false)
+    const safeQueue = Array.isArray(uploadQueue) ? uploadQueue : []
+    safeQueue.forEach(u => {
+      if (u.status === 'cancelled' || u.status === 'error' || u.status === 'paused') {
+        uploadControllersRef.current.set(u.id, new AbortController())
+      }
+    })
+    setUploadQueue(prev => prev.map(u => (u.status === 'cancelled' || u.status === 'error' || u.status === 'paused') ? {
+      ...u,
+      status: 'queued',
+      stage: 'local',
+      progress: 0,
+      loaded: 0,
+      speed: 0,
+      etaSeconds: 0,
+      error: null
+    } : u))
   }
 
   const retryUpload = (id) => {
@@ -1109,6 +1146,7 @@ export const DriveProvider = ({ children }) => {
       resumeAllUploads,
       isPausedAll,
       retryUpload,
+      retryAllUploads,
       cancelUploadInQueue,
       removeUploadFromQueue,
       clearUploadQueue,

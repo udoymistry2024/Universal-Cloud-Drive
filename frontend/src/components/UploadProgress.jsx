@@ -8,6 +8,7 @@ export const UploadProgress = () => {
     uploadQueue = [],
     removeUploadFromQueue,
     retryUpload,
+    retryAllUploads,
     clearUploadQueue,
     pauseUpload,
     resumeUpload,
@@ -23,10 +24,11 @@ export const UploadProgress = () => {
 
   const activeCount = safeQueue.filter(u => u?.status === 'uploading' || u?.status === 'queued').length
   const pausedCount = safeQueue.filter(u => u?.status === 'paused').length
+  const failedOrCancelledCount = safeQueue.filter(u => u?.status === 'cancelled' || u?.status === 'error').length
   const hasActiveOrPaused = activeCount > 0 || pausedCount > 0
 
   return (
-    <div className="fixed bottom-4 right-4 w-84 md:w-96 bg-ucd-surface rounded-2xl shadow-2xl border border-ucd-border overflow-hidden z-50 animate-in slide-in-from-bottom-4 duration-300">
+    <div className="fixed bottom-4 right-4 w-84 md:w-96 bg-ucd-surface rounded-2xl shadow-2xl border border-ucd-border overflow-hidden z-50 animate-in slide-in-from-bottom-4 duration-300 select-none">
       {/* Header */}
       <div className="bg-ucd-bg border-b border-ucd-accent/20 p-3 flex items-center justify-between">
         <div className="flex items-center space-x-2">
@@ -36,18 +38,45 @@ export const UploadProgress = () => {
               ? `Uploading ${activeCount} item${activeCount > 1 ? 's' : ''}`
               : pausedCount > 0
               ? `Paused (${pausedCount} item${pausedCount > 1 ? 's' : ''})`
+              : failedOrCancelledCount > 0
+              ? `Stopped (${failedOrCancelledCount} item${failedOrCancelledCount > 1 ? 's' : ''})`
               : `Uploads finished (${safeQueue.length})`}
           </span>
         </div>
         <div className="flex items-center space-x-1">
-          {/* Pause All / Resume All Button */}
-          {hasActiveOrPaused && (
+          {/* Pause All Button */}
+          {activeCount > 0 && (
             <button
-              onClick={() => (isPausedAll || activeCount === 0) ? resumeAllUploads?.() : pauseAllUploads?.()}
-              title={isPausedAll || activeCount === 0 ? "Resume all uploads" : "Pause all uploads"}
-              className="p-1 hover:bg-ucd-surface rounded text-amber-400 hover:text-amber-300 transition-colors mr-1"
+              onClick={() => pauseAllUploads?.()}
+              title="Pause all active uploads"
+              className="p-1 hover:bg-amber-500/20 text-amber-400 rounded transition-colors mr-1 cursor-pointer flex items-center space-x-1 px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/30"
             >
-              {isPausedAll || activeCount === 0 ? <Play className="w-3.5 h-3.5 fill-amber-400" /> : <Pause className="w-3.5 h-3.5 fill-amber-400" />}
+              <Pause className="w-3.5 h-3.5 fill-amber-400" />
+              <span className="text-[10px] font-bold">Pause</span>
+            </button>
+          )}
+
+          {/* Resume All Button */}
+          {pausedCount > 0 && (
+            <button
+              onClick={() => resumeAllUploads?.()}
+              title="Resume all paused uploads"
+              className="p-1 hover:bg-emerald-500/20 text-emerald-400 rounded transition-colors mr-1 cursor-pointer flex items-center space-x-1 px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/30"
+            >
+              <Play className="w-3.5 h-3.5 fill-emerald-400" />
+              <span className="text-[10px] font-bold">Resume</span>
+            </button>
+          )}
+
+          {/* Retry All Button */}
+          {failedOrCancelledCount > 0 && activeCount === 0 && pausedCount === 0 && (
+            <button
+              onClick={() => retryAllUploads?.()}
+              title="Retry all stopped or cancelled uploads"
+              className="p-1 hover:bg-cyan-500/20 text-cyan-400 rounded transition-colors mr-1 cursor-pointer flex items-center space-x-1 px-1.5 py-0.5 bg-cyan-500/10 border border-cyan-500/30"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className="text-[10px] font-bold">Retry All</span>
             </button>
           )}
 
