@@ -1,7 +1,34 @@
-import React, { useState, useEffect } from 'react'
-import { Cloud, Download, Eye, FileText, Image, Film, Music, FileArchive, FileCode, File, Folder, Loader2, AlertCircle, ChevronRight } from 'lucide-react'
-import { getPublicFileInfo, getPublicFolderInfo, getPublicDownloadUrl, getPublicStreamUrl, getPublicFileDownloadUrl, getPublicFileStreamUrl, getPublicThumbnailUrl } from '../lib/api'
-
+import React, { useState, useEffect, useMemo } from 'react'
+import {
+  Download,
+  Eye,
+  FileText,
+  Image as ImageIcon,
+  Film,
+  Music,
+  FileArchive,
+  FileCode,
+  File,
+  Folder,
+  Loader2,
+  AlertCircle,
+  ChevronRight,
+  LayoutGrid,
+  List,
+  Search,
+  ArrowDownToLine,
+  ShieldCheck,
+  Play
+} from 'lucide-react'
+import {
+  getPublicFileInfo,
+  getPublicFolderInfo,
+  getPublicDownloadUrl,
+  getPublicStreamUrl,
+  getPublicFileDownloadUrl,
+  getPublicFileStreamUrl,
+  getPublicThumbnailUrl
+} from '../lib/api'
 import { formatBytes, getFileCategory } from '../lib/fileUtils'
 import { PreviewModal } from './PreviewModal'
 import { BrandLogo } from './BrandLogo'
@@ -13,6 +40,9 @@ export const PublicShareView = () => {
   const [shareType, setShareType] = useState('file') // 'file' | 'folder'
   const [shareToken, setShareToken] = useState('')
   const [previewState, setPreviewState] = useState({ file: null, streamUrl: '' })
+  const [viewMode, setViewMode] = useState('grid') // 'grid' | 'list'
+  const [searchQuery, setSearchQuery] = useState('')
+  const [thumbnailErrors, setThumbnailErrors] = useState({})
 
   const fetchFolderContent = (token, subfolderId = null, pushHistory = true) => {
     setLoading(true)
@@ -37,8 +67,7 @@ export const PublicShareView = () => {
   useEffect(() => {
     const path = window.location.pathname
     const parts = path.split('/').filter(Boolean)
-    
-    // Path format: /share/file/{token} OR /share/folder/{token}
+
     if (parts.length >= 3 && parts[0] === 'share') {
       const type = parts[1]
       const token = parts[2]
@@ -72,25 +101,44 @@ export const PublicShareView = () => {
     return () => window.removeEventListener('popstate', handleSharePopState)
   }, [shareType, shareToken])
 
+  const handleThumbnailError = (fileId) => {
+    setThumbnailErrors(prev => ({ ...prev, [fileId]: true }))
+  }
+
+  // Search filtering
+  const filteredFolders = useMemo(() => {
+    if (!shareData?.folders) return []
+    if (!searchQuery.trim()) return shareData.folders
+    const q = searchQuery.toLowerCase()
+    return shareData.folders.filter(f => f.name.toLowerCase().includes(q))
+  }, [shareData?.folders, searchQuery])
+
+  const filteredFiles = useMemo(() => {
+    if (!shareData?.files) return []
+    if (!searchQuery.trim()) return shareData.files
+    const q = searchQuery.toLowerCase()
+    return shareData.files.filter(f => f.name.toLowerCase().includes(q))
+  }, [shareData?.files, searchQuery])
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-ucd-bg flex flex-col items-center justify-center text-ucd-accent">
-        <Loader2 className="w-8 h-8 animate-spin mb-3" />
-        <span className="text-sm text-ucd-muted">Loading shared content...</span>
+      <div className="min-h-screen bg-[#070a13] bg-supabase-grid flex flex-col items-center justify-center text-ucd-accent">
+        <Loader2 className="w-9 h-9 animate-spin mb-3 text-ucd-accent" />
+        <span className="text-sm font-medium text-ucd-muted">Loading shared cloud content...</span>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-ucd-bg flex flex-col items-center justify-center p-4">
-        <div className="bg-ucd-surface border border-ucd-border rounded-2xl p-6 text-center max-w-sm shadow-2xl">
+      <div className="min-h-screen bg-[#070a13] bg-supabase-grid flex flex-col items-center justify-center p-4">
+        <div className="bg-slate-900/70 border border-ucd-border/80 backdrop-blur-xl rounded-2xl p-6 text-center max-w-sm shadow-2xl">
           <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-400 flex items-center justify-center mx-auto mb-3 border border-rose-500/20">
             <AlertCircle className="w-6 h-6" />
           </div>
           <h3 className="font-bold text-base text-ucd-text mb-1">Access Denied</h3>
           <p className="text-xs text-ucd-dim mb-4">{error}</p>
-          <a href="/" className="px-4 py-2 bg-ucd-hover hover:bg-ucd-border text-xs font-semibold text-ucd-text rounded-xl transition-colors">
+          <a href="/" className="px-4 py-2 bg-ucd-accent/20 hover:bg-ucd-accent/30 text-ucd-accent text-xs font-semibold rounded-xl border border-ucd-accent/30 transition-colors inline-block">
             Go to Universal Cloud Drive
           </a>
         </div>
@@ -102,52 +150,76 @@ export const PublicShareView = () => {
   const rootToken = shareToken || shareData?.root_folder?.share_token
 
   return (
-    <div className="dark bg-firebase-texture min-h-screen text-ucd-text flex flex-col select-none">
-      {/* Header */}
-      <header className="h-14 border-b border-ucd-border bg-ucd-bg/95 backdrop-blur-sm px-4 md:px-6 flex items-center justify-between sticky top-0 z-30">
-        <div className="flex items-center space-x-2.5">
+    <div className="dark bg-[#070a13] bg-supabase-grid min-h-screen text-ucd-text flex flex-col select-none">
+      {/* Header Bar */}
+      <header className="h-14 border-b border-cyan-500/20 bg-slate-950/20 backdrop-blur-md px-4 md:px-6 flex items-center justify-between sticky top-0 z-30">
+        <div className="flex items-center space-x-3">
           <BrandLogo size="sm" />
-          <span className="text-xs bg-ucd-accent/15 border border-ucd-accent/30 text-ucd-accent px-2 py-0.5 rounded-md font-medium">Shared</span>
+          <span className="text-[11px] bg-ucd-accent/15 border border-ucd-accent/30 text-ucd-accent px-2 py-0.5 rounded-md font-medium flex items-center space-x-1">
+            <ShieldCheck className="w-3 h-3 text-ucd-accent" />
+            <span>Public Share</span>
+          </span>
         </div>
 
         <a
           href="/"
-          className="px-3.5 py-1.5 bg-ucd-surface hover:bg-ucd-hover border border-ucd-border text-xs font-semibold text-ucd-text rounded-xl transition-colors"
+          className="px-4 py-1.5 bg-ucd-surface hover:bg-ucd-hover border border-ucd-border/80 text-xs font-semibold text-ucd-text rounded-xl transition-colors shadow-sm"
         >
           Sign In
         </a>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 max-w-4xl w-full mx-auto p-4 md:p-6 flex flex-col justify-center items-center">
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 flex flex-col">
+        {/* SINGLE FILE SHARE VIEW */}
         {shareType === 'file' && shareData && (
-          <div className="w-full max-w-md bg-ucd-surface border border-ucd-border rounded-2xl shadow-2xl p-6 relative overflow-hidden">
-            <div className="w-16 h-16 bg-ucd-accent/10 border border-ucd-accent/20 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-glow">
-              {category === 'image' && <Image className="w-8 h-8 text-purple-400" />}
-              {category === 'video' && <Film className="w-8 h-8 text-rose-400" />}
-              {category === 'audio' && <Music className="w-8 h-8 text-emerald-400" />}
-              {category === 'pdf' && <FileText className="w-8 h-8 text-red-400" />}
-              {category === 'text' && <FileCode className="w-8 h-8 text-sky-400" />}
-              {category === 'archive' && <FileArchive className="w-8 h-8 text-amber-400" />}
-              {category === 'document' && <File className="w-8 h-8 text-slate-400" />}
+          <div className="max-w-xl w-full mx-auto my-auto bg-slate-900/60 border border-cyan-500/20 backdrop-blur-xl rounded-3xl shadow-2xl p-6 md:p-8 relative overflow-hidden text-center">
+            {/* Thumbnail / Category Hero */}
+            <div className="relative w-full h-56 bg-slate-950/50 rounded-2xl overflow-hidden border border-ucd-border flex items-center justify-center mb-6 group">
+              {(category === 'image' || category === 'video') && !thumbnailErrors[shareData.id] ? (
+                <img
+                  src={getPublicThumbnailUrl(rootToken, shareData.id)}
+                  alt={shareData.name}
+                  onError={() => handleThumbnailError(shareData.id)}
+                  className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                />
+              ) : (
+                <div className="flex flex-col items-center space-y-2">
+                  {category === 'image' && <ImageIcon className="w-16 h-16 text-purple-400" />}
+                  {category === 'video' && <Film className="w-16 h-16 text-rose-400" />}
+                  {category === 'audio' && <Music className="w-16 h-16 text-emerald-400" />}
+                  {category === 'pdf' && <FileText className="w-16 h-16 text-red-400" />}
+                  {category === 'text' && <FileCode className="w-16 h-16 text-sky-400" />}
+                  {category === 'archive' && <FileArchive className="w-16 h-16 text-amber-400" />}
+                  {category === 'document' && <File className="w-16 h-16 text-ucd-accent" />}
+                </div>
+              )}
+
+              {category === 'video' && (
+                <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-full bg-ucd-accent/90 text-white flex items-center justify-center shadow-glow">
+                    <Play className="w-6 h-6 fill-white ml-0.5" />
+                  </div>
+                </div>
+              )}
             </div>
 
-            <h2 className="text-lg font-bold text-ucd-text text-center truncate px-2">{shareData.name}</h2>
-            <p className="text-xs text-ucd-dim text-center mt-1">{formatBytes(shareData.size)} • Shared File</p>
+            <h2 className="text-xl font-bold text-white truncate px-2">{shareData.name}</h2>
+            <p className="text-xs text-ucd-dim mt-1.5">{formatBytes(shareData.size)} • Public Shared File</p>
 
             <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
                 onClick={() => setPreviewState({ file: shareData, streamUrl: getPublicStreamUrl(shareData.share_token) })}
-                className="w-full sm:w-auto px-5 py-2.5 bg-ucd-bg hover:bg-ucd-hover border border-ucd-border text-ucd-text font-semibold text-xs rounded-xl transition-colors flex items-center justify-center space-x-2"
+                className="w-full sm:w-auto px-6 py-3 bg-slate-800/80 hover:bg-slate-700/80 border border-ucd-border/80 text-ucd-text font-semibold text-xs rounded-xl transition-all flex items-center justify-center space-x-2 shadow-md"
               >
                 <Eye className="w-4 h-4 text-ucd-accent" />
-                <span>Preview</span>
+                <span>Preview File</span>
               </button>
 
               <a
                 href={getPublicDownloadUrl(shareData.share_token)}
                 download
-                className="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-ucd-accent to-ucd-royal hover:from-sky-400 hover:to-blue-500 text-white font-semibold text-xs rounded-xl shadow-glow-btn transition-all flex items-center justify-center space-x-2"
+                className="w-full sm:w-auto px-7 py-3 bg-gradient-to-r from-ucd-accent to-ucd-royal hover:from-sky-400 hover:to-blue-500 text-white font-semibold text-xs rounded-xl shadow-glow-btn transition-all flex items-center justify-center space-x-2"
               >
                 <Download className="w-4 h-4" />
                 <span>Download File</span>
@@ -156,32 +228,72 @@ export const PublicShareView = () => {
           </div>
         )}
 
+        {/* SHARED FOLDER GRID / LIST VIEW */}
         {shareType === 'folder' && shareData && (
-          <div className="w-full bg-ucd-surface border border-ucd-border rounded-2xl shadow-2xl p-5 md:p-6">
-            {/* Folder Header */}
-            <div className="flex items-center justify-between mb-4 border-b border-ucd-border pb-4">
-              <div className="flex items-center space-x-3 min-w-0">
-                <div className="p-2.5 bg-amber-400/10 rounded-xl border border-amber-400/20 shrink-0">
-                  <Folder className="w-6 h-6 fill-amber-400/60 text-amber-400" />
+          <div className="space-y-6">
+            {/* Top Folder Header & Controls */}
+            <div className="bg-slate-900/60 border border-cyan-500/20 backdrop-blur-xl rounded-2xl p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
+              <div className="flex items-center space-x-3.5 min-w-0">
+                <div className="p-3 bg-amber-400/10 rounded-xl border border-amber-400/20 shrink-0">
+                  <Folder className="w-7 h-7 fill-amber-400/60 text-amber-400" />
                 </div>
                 <div className="min-w-0">
-                  <h2 className="text-lg font-bold text-ucd-text truncate">{shareData.current_folder?.name || shareData.root_folder?.name}</h2>
-                  <p className="text-xs text-ucd-dim">
+                  <h2 className="text-xl font-bold text-white truncate">
+                    {shareData.current_folder?.name || shareData.root_folder?.name || 'Shared Folder'}
+                  </h2>
+                  <p className="text-xs text-ucd-dim mt-0.5">
                     Public Shared Folder • {(shareData.folders?.length || 0) + (shareData.files?.length || 0)} items
                   </p>
+                </div>
+              </div>
+
+              {/* Toolbar: Search + View Switcher */}
+              <div className="flex items-center space-x-3 w-full md:w-auto">
+                {/* Search Bar */}
+                <div className="relative flex-1 md:w-64">
+                  <Search className="w-4 h-4 text-ucd-dim absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search shared files..."
+                    className="w-full bg-slate-950/60 border border-ucd-border/80 focus:border-ucd-accent/50 rounded-xl pl-9 pr-3 py-1.5 text-xs text-ucd-text placeholder-ucd-dim focus:outline-none transition-colors"
+                  />
+                </div>
+
+                {/* View Mode Switcher */}
+                <div className="flex items-center bg-slate-950/60 border border-ucd-border/80 rounded-xl p-1 shrink-0">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    title="Grid View"
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      viewMode === 'grid' ? 'bg-ucd-accent/20 text-ucd-accent' : 'text-ucd-dim hover:text-ucd-text'
+                    }`}
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    title="List View"
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      viewMode === 'list' ? 'bg-ucd-accent/20 text-ucd-accent' : 'text-ucd-dim hover:text-ucd-text'
+                    }`}
+                  >
+                    <List className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             </div>
 
             {/* Breadcrumbs Navigation */}
             {shareData.breadcrumbs && shareData.breadcrumbs.length > 0 && (
-              <div className="flex items-center space-x-1.5 overflow-x-auto text-xs mb-5 bg-ucd-bg/60 p-2.5 rounded-xl border border-ucd-border shrink-0">
+              <div className="flex items-center space-x-2 overflow-x-auto text-xs bg-slate-900/40 backdrop-blur-md p-3 rounded-xl border border-cyan-500/20 scrollbar-none">
                 {shareData.breadcrumbs.map((crumb, idx) => (
                   <React.Fragment key={crumb.id || idx}>
                     {idx > 0 && <ChevronRight className="w-3.5 h-3.5 text-ucd-dim shrink-0" />}
                     <button
                       onClick={() => fetchFolderContent(rootToken, crumb.id)}
-                      className={`hover:text-ucd-accent transition-colors font-medium truncate max-w-[150px] ${
+                      className={`hover:text-ucd-accent transition-colors font-medium truncate max-w-[180px] ${
                         idx === shareData.breadcrumbs.length - 1 ? 'text-ucd-accent font-semibold' : 'text-ucd-dim'
                       }`}
                     >
@@ -193,20 +305,20 @@ export const PublicShareView = () => {
             )}
 
             {/* SUBFOLDERS SECTION */}
-            {shareData.folders && shareData.folders.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-xs font-semibold text-ucd-dim uppercase tracking-wider mb-2.5 px-1">Subfolders</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  {shareData.folders.map(subfolder => (
+            {filteredFolders.length > 0 && (
+              <div>
+                <h3 className="text-xs font-semibold text-ucd-dim uppercase tracking-wider mb-3 px-1">Folders ({filteredFolders.length})</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                  {filteredFolders.map(subfolder => (
                     <div
                       key={subfolder.id}
                       onClick={() => fetchFolderContent(rootToken, subfolder.id)}
-                      className="p-3 bg-ucd-bg hover:bg-ucd-hover border border-ucd-border hover:border-ucd-accent/30 rounded-xl cursor-pointer transition-all flex items-center space-x-3 group"
+                      className="p-3.5 bg-slate-900/60 hover:bg-slate-800/80 border border-ucd-border/80 hover:border-ucd-accent/40 rounded-2xl cursor-pointer transition-all duration-200 flex items-center space-x-3 group shadow-md"
                     >
-                      <div className="p-2 bg-amber-400/10 rounded-lg shrink-0">
+                      <div className="p-2.5 bg-amber-400/10 rounded-xl border border-amber-400/20 shrink-0 group-hover:scale-105 transition-transform">
                         <Folder className="w-5 h-5 fill-amber-400/60 text-amber-400" />
                       </div>
-                      <span className="text-sm font-medium text-ucd-text group-hover:text-ucd-accent truncate transition-colors">
+                      <span className="text-xs font-semibold text-ucd-text group-hover:text-ucd-accent truncate transition-colors">
                         {subfolder.name}
                       </span>
                     </div>
@@ -217,65 +329,169 @@ export const PublicShareView = () => {
 
             {/* FILES SECTION */}
             <div>
-              <h3 className="text-xs font-semibold text-ucd-dim uppercase tracking-wider mb-2.5 px-1">Files</h3>
-              <div className="space-y-2">
-                {shareData.files?.map(file => {
-                  const fileCat = getFileCategory(file.mime_type, file.name)
-                  const downloadUrl = getPublicFileDownloadUrl(rootToken, file.id)
-                  const streamUrl = getPublicFileStreamUrl(rootToken, file.id)
+              <h3 className="text-xs font-semibold text-ucd-dim uppercase tracking-wider mb-3 px-1">Files ({filteredFiles.length})</h3>
 
-                  return (
-                    <div key={file.id} className="flex items-center justify-between p-3 bg-ucd-bg hover:bg-ucd-surface border border-ucd-border rounded-xl transition-colors">
-                      <div className="flex items-center space-x-3 min-w-0 flex-1 pr-2">
-                        <div className="shrink-0">
-                          {fileCat === 'image' && <Image className="w-4 h-4 text-purple-400" />}
-                          {fileCat === 'video' && <Film className="w-4 h-4 text-rose-400" />}
-                          {fileCat === 'audio' && <Music className="w-4 h-4 text-emerald-400" />}
-                          {fileCat === 'pdf' && <FileText className="w-4 h-4 text-red-400" />}
-                          {fileCat === 'text' && <FileCode className="w-4 h-4 text-sky-400" />}
-                          {fileCat === 'archive' && <FileArchive className="w-4 h-4 text-amber-400" />}
-                          {fileCat === 'document' && <File className="w-4 h-4 text-ucd-accent" />}
+              {/* GRID VIEW (Full Rich Thumbnails matching Screenshot 2) */}
+              {viewMode === 'grid' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {filteredFiles.map(file => {
+                    const fileCat = getFileCategory(file.mime_type, file.name)
+                    const downloadUrl = getPublicFileDownloadUrl(rootToken, file.id)
+                    const streamUrl = getPublicFileStreamUrl(rootToken, file.id)
+                    const hasThumb = (fileCat === 'image' || fileCat === 'video') && !thumbnailErrors[file.id]
+
+                    return (
+                      <div
+                        key={file.id}
+                        className="bg-slate-900/60 hover:bg-slate-800/80 border border-ucd-border/80 hover:border-ucd-accent/40 rounded-2xl overflow-hidden transition-all duration-200 group flex flex-col shadow-lg"
+                      >
+                        {/* 16:9 Thumbnail Header */}
+                        <div
+                          onClick={() => setPreviewState({ file, streamUrl })}
+                          className="relative aspect-video bg-slate-950/70 overflow-hidden cursor-pointer flex items-center justify-center border-b border-ucd-border/60"
+                        >
+                          {hasThumb ? (
+                            <img
+                              src={getPublicThumbnailUrl(rootToken, file.id)}
+                              alt={file.name}
+                              onError={() => handleThumbnailError(file.id)}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="p-4 rounded-2xl bg-slate-900/80 border border-ucd-border/60 shadow-inner">
+                              {fileCat === 'image' && <ImageIcon className="w-8 h-8 text-purple-400" />}
+                              {fileCat === 'video' && <Film className="w-8 h-8 text-rose-400" />}
+                              {fileCat === 'audio' && <Music className="w-8 h-8 text-emerald-400" />}
+                              {fileCat === 'pdf' && <FileText className="w-8 h-8 text-red-400" />}
+                              {fileCat === 'text' && <FileCode className="w-8 h-8 text-sky-400" />}
+                              {fileCat === 'archive' && <FileArchive className="w-8 h-8 text-amber-400" />}
+                              {fileCat === 'document' && <File className="w-8 h-8 text-ucd-accent" />}
+                            </div>
+                          )}
+
+                          {fileCat === 'video' && (
+                            <div className="absolute inset-0 bg-black/25 flex items-center justify-center group-hover:bg-black/40 transition-colors">
+                              <div className="w-9 h-9 rounded-full bg-ucd-accent/90 text-white flex items-center justify-center shadow-glow group-hover:scale-110 transition-transform">
+                                <Play className="w-4 h-4 fill-white ml-0.5" />
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Hover Overlay Action Controls */}
+                          <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-2">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setPreviewState({ file, streamUrl }) }}
+                              className="p-2 bg-slate-900/90 text-ucd-accent hover:text-sky-300 rounded-xl border border-ucd-accent/30 shadow-md hover:scale-105 transition-all"
+                              title="Preview"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <a
+                              href={downloadUrl}
+                              download
+                              onClick={(e) => e.stopPropagation()}
+                              className="p-2 bg-ucd-accent text-white hover:bg-sky-400 rounded-xl shadow-glow hover:scale-105 transition-all"
+                              title="Download"
+                            >
+                              <Download className="w-4 h-4" />
+                            </a>
+                          </div>
                         </div>
-                        <span className="text-sm font-medium text-ucd-text truncate">{file.name}</span>
-                      </div>
 
-                      <div className="flex items-center space-x-3.5 text-xs text-ucd-dim shrink-0">
-                        <span>{formatBytes(file.size)}</span>
-                        
-                        <div className="flex items-center space-x-1">
-                          <button
-                            onClick={() => setPreviewState({ file, streamUrl })}
-                            className="p-1.5 text-ucd-dim hover:text-ucd-accent hover:bg-ucd-accent/10 rounded-lg transition-colors"
-                            title="Preview File"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
+                        {/* File Details Footer */}
+                        <div className="p-3 flex items-center justify-between min-w-0">
+                          <div className="min-w-0 flex-1 pr-2">
+                            <p className="text-xs font-medium text-ucd-text truncate group-hover:text-ucd-accent transition-colors" title={file.name}>
+                              {file.name}
+                            </p>
+                            <p className="text-[10px] text-ucd-dim mt-0.5">{formatBytes(file.size)}</p>
+                          </div>
 
                           <a
                             href={downloadUrl}
                             download
-                            className="p-1.5 text-ucd-accent hover:text-sky-400 hover:bg-ucd-accent/10 rounded-lg transition-colors"
-                            title="Download File"
+                            className="p-1.5 text-ucd-dim hover:text-ucd-accent rounded-lg transition-colors shrink-0"
+                            title="Download"
                           >
-                            <Download className="w-4 h-4" />
+                            <ArrowDownToLine className="w-3.5 h-3.5" />
                           </a>
                         </div>
                       </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
+              ) : (
+                /* LIST VIEW */
+                <div className="space-y-2">
+                  {filteredFiles.map(file => {
+                    const fileCat = getFileCategory(file.mime_type, file.name)
+                    const downloadUrl = getPublicFileDownloadUrl(rootToken, file.id)
+                    const streamUrl = getPublicFileStreamUrl(rootToken, file.id)
 
-                {(!shareData.files || shareData.files.length === 0) && (!shareData.folders || shareData.folders.length === 0) && (
-                  <div className="text-center py-12 text-ucd-dim text-xs">This shared folder is empty.</div>
-                )}
-              </div>
+                    return (
+                      <div
+                        key={file.id}
+                        className="flex items-center justify-between p-3 bg-slate-900/60 hover:bg-slate-800/80 border border-ucd-border/80 rounded-xl transition-colors group"
+                      >
+                        <div className="flex items-center space-x-3 min-w-0 flex-1 pr-3">
+                          <div className="shrink-0">
+                            {fileCat === 'image' && <ImageIcon className="w-4 h-4 text-purple-400" />}
+                            {fileCat === 'video' && <Film className="w-4 h-4 text-rose-400" />}
+                            {fileCat === 'audio' && <Music className="w-4 h-4 text-emerald-400" />}
+                            {fileCat === 'pdf' && <FileText className="w-4 h-4 text-red-400" />}
+                            {fileCat === 'text' && <FileCode className="w-4 h-4 text-sky-400" />}
+                            {fileCat === 'archive' && <FileArchive className="w-4 h-4 text-amber-400" />}
+                            {fileCat === 'document' && <File className="w-4 h-4 text-ucd-accent" />}
+                          </div>
+                          <span className="text-xs font-medium text-ucd-text group-hover:text-ucd-accent truncate transition-colors">
+                            {file.name}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center space-x-4 text-xs text-ucd-dim shrink-0">
+                          <span>{formatBytes(file.size)}</span>
+                          <div className="flex items-center space-x-1">
+                            <button
+                              onClick={() => setPreviewState({ file, streamUrl })}
+                              className="p-1.5 text-ucd-dim hover:text-ucd-accent hover:bg-ucd-accent/10 rounded-lg transition-colors"
+                              title="Preview"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <a
+                              href={downloadUrl}
+                              download
+                              className="p-1.5 text-ucd-accent hover:text-sky-400 hover:bg-ucd-accent/10 rounded-lg transition-colors"
+                              title="Download"
+                            >
+                              <Download className="w-4 h-4" />
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {filteredFiles.length === 0 && filteredFolders.length === 0 && (
+                <div className="text-center py-16 bg-slate-900/40 rounded-2xl border border-cyan-500/20 text-ucd-dim text-xs">
+                  {searchQuery ? "No matching files or folders found." : "This shared folder is empty."}
+                </div>
+              )}
             </div>
           </div>
         )}
       </main>
 
+      {/* Preview Modal for Images / Videos / Documents */}
       {previewState.file && (
-        <PreviewModal file={previewState.file} streamUrl={previewState.streamUrl} onClose={() => setPreviewState({ file: null, streamUrl: '' })} />
+        <PreviewModal
+          file={previewState.file}
+          streamUrl={previewState.streamUrl}
+          onClose={() => setPreviewState({ file: null, streamUrl: '' })}
+        />
       )}
     </div>
   )
