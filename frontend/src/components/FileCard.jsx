@@ -420,7 +420,9 @@ export const FileCard = ({ file, index = 0, onPreview }) => {
       {viewMode === 'list' ? (
         <div
           {...longPressHandlers}
-          className={`group flex items-center justify-between p-2.5 md:p-3 bg-slate-900/60 hover:bg-slate-800/80 backdrop-blur-xl border rounded-xl cursor-pointer transition-all duration-150 overflow-visible relative ${
+          className={`group flex items-center justify-between p-2.5 md:p-3 bg-slate-900/60 hover:bg-slate-800/80 backdrop-blur-xl border rounded-xl cursor-pointer transition-all duration-150 overflow-visible ${
+            showMenu ? 'z-[60] relative shadow-2xl' : 'relative z-10'
+          } ${
             isSelected
               ? 'border-ucd-accent/50 bg-ucd-accent/15 ring-1 ring-ucd-accent/20'
               : 'border-cyan-500/20 hover:border-ucd-accent/40'
@@ -473,7 +475,9 @@ export const FileCard = ({ file, index = 0, onPreview }) => {
       ) : (
         <div
           {...longPressHandlers}
-          className={`group relative bg-slate-900/60 hover:bg-slate-800/80 backdrop-blur-xl rounded-2xl border overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-glow flex flex-col justify-between ${
+          className={`group bg-slate-900/60 hover:bg-slate-800/80 backdrop-blur-xl rounded-2xl border cursor-pointer transition-all duration-200 hover:shadow-glow flex flex-col justify-between ${
+            showMenu ? 'z-[60] relative shadow-2xl overflow-visible' : 'overflow-hidden relative z-10'
+          } ${
             isSelected
               ? 'border-ucd-accent/50 ring-2 ring-ucd-accent/20 bg-ucd-accent/15'
               : 'border-cyan-500/20 hover:border-ucd-accent/40'
