@@ -31,10 +31,19 @@ export const UploadProgress = () => {
             {isMinimized ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
           <button
-            onClick={() => clearUploadQueue?.()}
-            title="Close panel"
+            onClick={() => {
+              if (activeCount === 0) {
+                clearUploadQueue?.()
+              }
+            }}
+            disabled={activeCount > 0}
+            title={activeCount > 0 ? "Cannot close panel while uploads are in progress" : "Close panel"}
             aria-label="Close upload progress panel"
-            className="p-1 hover:bg-ucd-rose/20 rounded text-ucd-dim hover:text-ucd-rose transition-colors"
+            className={`p-1 rounded transition-colors ${
+              activeCount > 0
+                ? 'opacity-30 cursor-not-allowed text-ucd-dim'
+                : 'text-ucd-dim hover:text-ucd-rose hover:bg-ucd-rose/20'
+            }`}
           >
             <X className="w-4 h-4" />
           </button>

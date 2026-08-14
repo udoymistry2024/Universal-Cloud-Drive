@@ -648,9 +648,15 @@ export const DriveProvider = ({ children }) => {
     })
 
     if (uniqueFolders.size > 0) {
-      const rootFolderName = rawFiles[0].webkitRelativePath?.split('/')[0] || rawFiles[0].relativePath?.split('/')[0] || 'Selected Folder'
+      const rootFolderNames = Array.from(new Set(
+        Array.from(uniqueFolders).map(f => f.split('/')[0])
+      ))
+      const displayFolderName = rootFolderNames.length > 1
+        ? `${rootFolderNames.length} Folders (${rootFolderNames.slice(0, 2).join(', ')}${rootFolderNames.length > 2 ? '...' : ''})`
+        : (rootFolderNames[0] || 'Selected Folder')
+
       setPendingFolderUpload({
-        folderName: rootFolderName,
+        folderName: displayFolderName,
         filesCount: rawFiles.length,
         foldersCount: uniqueFolders.size,
         rawFiles,
