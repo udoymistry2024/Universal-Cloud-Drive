@@ -4,7 +4,7 @@ import { useDrive } from '../context/DriveContext'
 import { formatBytes, formatSpeed, formatETA } from '../lib/fileUtils'
 
 export const UploadProgress = () => {
-  const { uploadQueue = [], removeUploadFromQueue, retryUpload } = useDrive() || {}
+  const { uploadQueue = [], removeUploadFromQueue, retryUpload, clearUploadQueue } = useDrive() || {}
   const [isMinimized, setIsMinimized] = useState(false)
   const safeQueue = Array.isArray(uploadQueue) ? uploadQueue : []
 
@@ -22,9 +22,23 @@ export const UploadProgress = () => {
             {activeCount > 0 ? `Uploading ${activeCount} item${activeCount > 1 ? 's' : ''}` : `Uploads finished (${safeQueue.length})`}
           </span>
         </div>
-        <button onClick={() => setIsMinimized(v => !v)} className="p-1 hover:bg-ucd-surface rounded text-ucd-dim hover:text-ucd-accent transition-colors">
-          {isMinimized ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-        </button>
+        <div className="flex items-center space-x-1">
+          <button
+            onClick={() => setIsMinimized(v => !v)}
+            title={isMinimized ? "Expand" : "Collapse"}
+            className="p-1 hover:bg-ucd-surface rounded text-ucd-dim hover:text-ucd-accent transition-colors"
+          >
+            {isMinimized ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+          <button
+            onClick={() => clearUploadQueue?.()}
+            title="Close panel"
+            aria-label="Close upload progress panel"
+            className="p-1 hover:bg-ucd-rose/20 rounded text-ucd-dim hover:text-ucd-rose transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {!isMinimized && (

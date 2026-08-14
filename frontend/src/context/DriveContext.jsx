@@ -34,8 +34,24 @@ const fetchFolderFilesRecursively = async (folderId) => {
 
 export const DriveProvider = ({ children }) => {
   const { user, refreshUser } = useAuth()
-  const [activeTab, setActiveTab] = useState('my_drive') // my_drive, starred, trash
-  const [currentFolder, setCurrentFolder] = useState(null) // null = root
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      return params.get('tab') || 'my_drive'
+    }
+    return 'my_drive'
+  })
+  const [currentFolder, setCurrentFolder] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const initFolderId = params.get('folder')
+      if (initFolderId) {
+        const storedName = sessionStorage.getItem(`ucd_fname_${initFolderId}`) || 'Folder'
+        return { id: initFolderId, name: storedName }
+      }
+    }
+    return null
+  })
   const [folderPath, setFolderPath] = useState([]) // [{id, name}]
   const [files, setFiles] = useState([])
   const [folders, setFolders] = useState([])
@@ -268,6 +284,12 @@ export const DriveProvider = ({ children }) => {
       setFolderPath([])
       pushDriveState('my_drive', null, [])
       return
+    }
+
+    if (folder.id && folder.name) {
+      try {
+        sessionStorage.setItem(`ucd_fname_${folder.id}`, folder.name)
+      } catch (e) {}
     }
 
     let newPath = []
@@ -865,6 +887,16 @@ export const DriveProvider = ({ children }) => {
     setUploadQueue(prev => prev.filter(u => u.id !== id))
   }
 
+  const clearUploadQueue = () => {
+    const safeQueue = Array.isArray(uploadQueue) ? uploadQueue : []
+    safeQueue.forEach(u => {
+      if (u.status === 'uploading' || u.status === 'queued') {
+        cancelUploadInQueue(u.id)
+      }
+    })
+    setUploadQueue([])
+  }
+
 
   const sortedFiles = useMemo(() => {
     const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
@@ -929,6 +961,7 @@ export const DriveProvider = ({ children }) => {
       retryUpload,
       cancelUploadInQueue,
       removeUploadFromQueue,
+      clearUploadQueue,
 
       addFolderLocally,
       removeFolderLocally,
