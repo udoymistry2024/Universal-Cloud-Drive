@@ -12,12 +12,18 @@ export const Navbar = ({ onToggleSidebar, sidebarOpen, onOpenDeleteAccount }) =>
 
   const userMenuRef = useClickOutside(useCallback(() => setShowUserMenu(false), []))
 
-  // Logo click: gracefully navigate to home (root) without hard refresh
+  // Logo click: navigate to home (root My Drive) and refresh page cleanly
   const handleLogoClick = () => {
-    setActiveTab('my_drive')
-    navigateToFolder(null)
-    clearSelection()
-    setSearchQuery('')
+    setActiveTab?.('my_drive')
+    navigateToFolder?.(null)
+    clearSelection?.()
+    setSearchQuery?.('')
+    
+    if (window.location.search || window.location.hash) {
+      window.location.href = window.location.pathname
+    } else {
+      window.location.reload()
+    }
   }
 
   return (
