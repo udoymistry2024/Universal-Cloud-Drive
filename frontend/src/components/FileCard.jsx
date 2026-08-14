@@ -417,10 +417,10 @@ export const FileCard = ({ file, index = 0, onPreview }) => {
       {viewMode === 'list' ? (
         <div
           {...longPressHandlers}
-          className={`group flex items-center justify-between p-2.5 md:p-3 bg-ucd-bg/60 hover:bg-ucd-surface border rounded-xl cursor-pointer transition-all duration-150 overflow-visible relative ${
+          className={`group flex items-center justify-between p-2.5 md:p-3 bg-slate-900/60 hover:bg-slate-800/80 backdrop-blur-xl border rounded-xl cursor-pointer transition-all duration-150 overflow-visible relative ${
             isSelected
-              ? 'border-ucd-accent/40 bg-ucd-accent/5 ring-1 ring-ucd-accent/20'
-              : 'border-transparent hover:border-ucd-accent/20'
+              ? 'border-ucd-accent/50 bg-ucd-accent/15 ring-1 ring-ucd-accent/20'
+              : 'border-cyan-500/20 hover:border-ucd-accent/40'
           }`}
         >
           <div className="flex items-center space-x-3 min-w-0 flex-1">
@@ -470,10 +470,10 @@ export const FileCard = ({ file, index = 0, onPreview }) => {
       ) : (
         <div
           {...longPressHandlers}
-          className={`group relative bg-ucd-surface hover:bg-ucd-hover rounded-xl border overflow-visible cursor-pointer transition-all duration-200 hover:shadow-glow flex flex-col justify-between ${
+          className={`group relative bg-slate-900/60 hover:bg-slate-800/80 backdrop-blur-xl rounded-2xl border overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-glow flex flex-col justify-between ${
             isSelected
-              ? 'border-ucd-accent/40 ring-2 ring-ucd-accent/20 bg-ucd-accent/5'
-              : 'border-ucd-border hover:border-ucd-accent/30'
+              ? 'border-ucd-accent/50 ring-2 ring-ucd-accent/20 bg-ucd-accent/15'
+              : 'border-cyan-500/20 hover:border-ucd-accent/40'
           }`}
         >
           {/* Preview thumbnail */}

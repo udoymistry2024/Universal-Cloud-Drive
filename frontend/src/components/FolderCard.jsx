@@ -347,10 +347,10 @@ export const FolderCard = ({ folder }) => {
       <>
         <div
           {...longPressHandlers}
-          className={`group flex items-center justify-between p-2.5 md:p-3 bg-ucd-bg/60 hover:bg-ucd-surface border rounded-xl cursor-pointer transition-all duration-150 overflow-visible relative ${
+          className={`group flex items-center justify-between p-2.5 md:p-3 bg-slate-900/60 hover:bg-slate-800/80 backdrop-blur-xl border rounded-xl cursor-pointer transition-all duration-150 overflow-visible relative ${
             isSelected
-              ? 'border-ucd-accent/40 bg-ucd-accent/5 ring-1 ring-ucd-accent/20'
-              : 'border-transparent hover:border-ucd-accent/20'
+              ? 'border-ucd-accent/50 bg-ucd-accent/15 ring-1 ring-ucd-accent/20'
+              : 'border-cyan-500/20 hover:border-ucd-accent/40'
           }`}
         >
           <div className="flex items-center space-x-3 min-w-0 flex-1">
@@ -427,10 +427,10 @@ export const FolderCard = ({ folder }) => {
     <>
       <div
         {...longPressHandlers}
-        className={`group relative bg-ucd-surface hover:bg-ucd-hover p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all duration-200 hover:shadow-glow ${
+        className={`group relative bg-slate-900/60 hover:bg-slate-800/80 backdrop-blur-xl p-3.5 rounded-2xl border flex items-center justify-between cursor-pointer transition-all duration-200 hover:shadow-glow ${
           isSelected
-            ? 'border-ucd-accent/40 ring-2 ring-ucd-accent/20 bg-ucd-accent/5'
-            : 'border-ucd-border hover:border-ucd-accent/30'
+            ? 'border-ucd-accent/50 ring-2 ring-ucd-accent/20 bg-ucd-accent/15'
+            : 'border-cyan-500/20 hover:border-ucd-accent/40'
         }`}
       >
         <div className="flex items-center space-x-3 min-w-0 flex-1">
