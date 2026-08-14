@@ -146,6 +146,81 @@ When you host your **DataForge Database Platform** live on a Cloud VPS (so it ru
 
 ---
 
+## 🔄 Database Provider Switching Guide (DataForge PostgreSQL ↔️ Supabase Cloud)
+
+Universal Cloud Drive is engineered with a **decoupled, provider-agnostic database layer**. By default, it runs on a self-hosted **DataForge PostgreSQL** instance. If you prefer to switch your database provider to **Supabase Cloud**, follow these 3 simple steps:
+
+### Step 1: Initialize Schema in Supabase Dashboard
+1. Log in to [Supabase Cloud](https://supabase.com) and create a new project.
+2. Open **SQL Editor** in your Supabase Dashboard.
+3. Paste and execute the SQL schema from [dataforge_schema.sql](file:///media/udoy/New%20Volume/Development/Project_Test/dataforge_schema.sql) (or run the snippet below) to create the required tables:
+
+```sql
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    telegram_username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    storage_limit BIGINT DEFAULT 32212254720,
+    used_storage BIGINT DEFAULT 0,
+    is_banned BOOLEAN DEFAULT FALSE,
+    last_login_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS folders (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    parent_id UUID REFERENCES folders(id) ON DELETE CASCADE,
+    is_trash BOOLEAN DEFAULT FALSE,
+    is_shared BOOLEAN DEFAULT FALSE,
+    share_token TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS files (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    folder_id UUID REFERENCES folders(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    size BIGINT NOT NULL,
+    mime_type TEXT,
+    telegram_message_id BIGINT NOT NULL,
+    telegram_file_id TEXT NOT NULL,
+    is_starred BOOLEAN DEFAULT FALSE,
+    is_trash BOOLEAN DEFAULT FALSE,
+    is_shared BOOLEAN DEFAULT FALSE,
+    share_token TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### Step 2: Update Credentials in `backend/.env`
+Go to your Supabase Project Settings -> **API** and copy your `Project URL` and `service_role` secret key into `backend/.env`:
+
+```env
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+```
+
+### Step 3: Switch Database Client in `backend/app/supabase_client.py`
+In `backend/app/supabase_client.py`, replace the `DataForgeClient()` instantiation at the bottom of the file with the official Supabase Python SDK:
+
+```python
+# Change this line at the bottom of backend/app/supabase_client.py:
+# supabase_admin = DataForgeClient()
+
+# To official Supabase REST SDK:
+from supabase import create_client
+supabase_admin = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
+```
+
+Restart your backend server (`./stop.sh && ./start.sh`), and the entire application will now communicate directly with **Supabase Cloud REST API**!
+
+---
+
 ## 🐳 Docker & Hugging Face Spaces Deployment
 
 The project includes a multi-stage production Dockerfile configured for Hugging Face Spaces (Port `7860`).
