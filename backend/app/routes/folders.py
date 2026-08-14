@@ -61,6 +61,44 @@ async def create_folder(
     
     return res.data[0]
 
+@router.get("/path/{folder_id}")
+async def get_folder_ancestor_path(
+    folder_id: str,
+    token: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None)
+):
+    """
+    Returns the complete breadcrumb ancestor path for a folder from root to target folder.
+    Example output: [ {"id": "photos_id", "name": "Photos"}, {"id": "school_life_id", "name": "School Life"} ]
+    """
+    auth_header = authorization or (f"Bearer {token}" if token else None)
+    user_id = get_current_user_id(auth_header)
+
+    if not folder_id or folder_id in ["null", "root"]:
+        return []
+
+    ancestors = []
+    curr_id = folder_id
+    visited_ids = set()
+
+    while curr_id and curr_id not in visited_ids:
+        visited_ids.add(curr_id)
+        res = supabase_admin.table("folders").select("id, name, parent_id").eq("id", curr_id).eq("user_id", user_id).execute()
+        if not res.data:
+            break
+
+        f_rec = res.data[0]
+        ancestors.append({
+            "id": f_rec["id"],
+            "name": f_rec["name"]
+        })
+        curr_id = f_rec.get("parent_id")
+        if not curr_id or str(curr_id).strip() in ["null", "root", "None"]:
+            break
+
+    ancestors.reverse()
+    return ancestors
+
 @router.get("/list")
 async def list_folders(
     parent_id: Optional[str] = Query(None),

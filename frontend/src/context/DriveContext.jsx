@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
 
-import { getFiles, getFolders, createFolder, uploadFile as apiUploadFile, emptyTrash as apiEmptyTrash, moveItemApi, copyItemApi, updateFile, updateFolder, deleteFile, deleteFolder, getDownloadUrl, API_BASE_URL } from '../lib/api'
+import { getFiles, getFolders, getFolderPath, createFolder, uploadFile as apiUploadFile, emptyTrash as apiEmptyTrash, moveItemApi, copyItemApi, updateFile, updateFolder, deleteFile, deleteFolder, getDownloadUrl, API_BASE_URL } from '../lib/api'
 
 import { useAuth } from './AuthContext'
 
@@ -158,13 +158,32 @@ export const DriveProvider = ({ children }) => {
         ])
         freshFiles = fileList || []
         freshFolders = folderList || []
-      } else {
-        const [fileList, folderList] = await Promise.all([
-          getFiles(currentFolder?.id || null, null, false, controller.signal),
-          getFolders(currentFolder?.id || null, false, controller.signal)
+      } else if (currentFolder?.id) {
+        const [fileList, folderList, pathAncestors] = await Promise.all([
+          getFiles(currentFolder.id, null, false, controller.signal),
+          getFolders(currentFolder.id, false, controller.signal),
+          getFolderPath(currentFolder.id, controller.signal)
         ])
         freshFiles = fileList || []
         freshFolders = folderList || []
+        if (!controller.signal.aborted && Array.isArray(pathAncestors) && pathAncestors.length > 0) {
+          setFolderPath(pathAncestors)
+          const targetLeaf = pathAncestors[pathAncestors.length - 1]
+          if (targetLeaf && targetLeaf.name) {
+            setCurrentFolder(targetLeaf)
+            try { sessionStorage.setItem(`ucd_fname_${targetLeaf.id}`, targetLeaf.name) } catch (e) {}
+          }
+        }
+      } else {
+        const [fileList, folderList] = await Promise.all([
+          getFiles(null, null, false, controller.signal),
+          getFolders(null, false, controller.signal)
+        ])
+        freshFiles = fileList || []
+        freshFolders = folderList || []
+        if (!controller.signal.aborted) {
+          setFolderPath([])
+        }
       }
 
       if (!controller.signal.aborted) {

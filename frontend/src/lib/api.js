@@ -204,6 +204,12 @@ export const getFolders = async (parentId = null, isTrash = false, signal = null
   return response.data
 }
 
+export const getFolderPath = async (folderId, signal = null) => {
+  if (!folderId || folderId === 'null' || folderId === 'root') return []
+  const response = await api.get(`/api/folders/path/${folderId}`, { signal })
+  return response.data
+}
+
 export const createFolder = async (name, parentId = null) => {
   const response = await api.post('/api/folders', { name, parent_id: parentId })
   return response.data
