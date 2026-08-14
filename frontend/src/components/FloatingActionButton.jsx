@@ -1,11 +1,12 @@
 import React, { useState, useRef, useCallback } from 'react'
-import { Plus, UploadCloud, FolderPlus, FolderUp, RotateCw } from 'lucide-react'
+import { Plus, UploadCloud, FolderPlus, FolderUp, RefreshCw } from 'lucide-react'
 import { useDrive } from '../context/DriveContext'
 import { useClickOutside } from '../hooks/useClickOutside'
 
 export const FloatingActionButton = ({ onOpenNewFolder }) => {
-  const { uploadFiles } = useDrive()
+  const { uploadFiles, refreshContent } = useDrive() || {}
   const [isOpen, setIsOpen] = useState(false)
+  const [isSpinning, setIsSpinning] = useState(false)
   const fileInputRef = useRef(null)
   const folderInputRef = useRef(null)
 
@@ -13,27 +14,38 @@ export const FloatingActionButton = ({ onOpenNewFolder }) => {
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      uploadFiles(e.target.files)
+      uploadFiles?.(e.target.files)
       setIsOpen(false)
     }
   }
 
   const handleFolderChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      uploadFiles(e.target.files)
+      uploadFiles?.(e.target.files)
       setIsOpen(false)
     }
   }
 
-  const handleRefresh = () => {
-    window.location.reload()
+  const handleRefresh = async () => {
+    setIsSpinning(true)
+    try {
+      if (refreshContent) {
+        await refreshContent(true)
+      } else {
+        window.location.reload()
+      }
+    } catch (e) {
+      window.location.reload()
+    } finally {
+      setTimeout(() => setIsSpinning(false), 700)
+    }
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-40 flex flex-col items-center space-y-2.5 select-none" ref={containerRef}>
+    <div className="fixed bottom-6 right-6 z-40 flex flex-col items-center space-y-3 select-none" ref={containerRef}>
       {/* Floating Menu Popup - Positioned right above the (+) button */}
       {isOpen && (
-        <div className="absolute bottom-16 right-0 w-52 bg-ucd-surface/95 backdrop-blur-xl border border-ucd-border rounded-2xl shadow-2xl p-1.5 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200">
+        <div className="absolute bottom-16 right-0 w-52 bg-ucd-surface/95 backdrop-blur-2xl border border-ucd-accent/30 rounded-2xl shadow-2xl p-1.5 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200">
           <button
             onClick={() => { fileInputRef.current?.click(); setIsOpen(false) }}
             className="w-full flex items-center space-x-3 px-3.5 py-3 text-xs md:text-sm text-ucd-text hover:bg-ucd-accent/10 hover:text-ucd-accent rounded-xl transition-colors font-medium"
@@ -50,7 +62,6 @@ export const FloatingActionButton = ({ onOpenNewFolder }) => {
             <span>Folder Upload</span>
           </button>
 
-
           <button
             onClick={() => { onOpenNewFolder(); setIsOpen(false) }}
             className="w-full flex items-center space-x-3 px-3.5 py-3 text-xs md:text-sm text-ucd-text hover:bg-ucd-accent/10 hover:text-ucd-accent rounded-xl transition-colors font-medium border-t border-ucd-border/40 mt-1 pt-3"
@@ -61,16 +72,21 @@ export const FloatingActionButton = ({ onOpenNewFolder }) => {
         </div>
       )}
 
-      {/* Floating Refresh Button — Hidden when menu is open */}
+      {/* Modern Glassmorphic Glow Refresh Button */}
       {!isOpen && (
-        <button
-          onClick={handleRefresh}
-          title="Reload Page"
-          aria-label="Reload Page"
-          className="w-10 h-10 rounded-full bg-ucd-surface/90 backdrop-blur-md border border-ucd-border hover:border-ucd-accent/40 text-ucd-accent hover:text-white hover:bg-ucd-accent/20 shadow-md flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 group"
-        >
-          <RotateCw className="w-4 h-4 transition-transform duration-500 group-hover:rotate-180" />
-        </button>
+        <div className="relative group">
+          {/* Subtle Outer Pulse Glow Ring */}
+          <div className="absolute -inset-0.5 rounded-full bg-gradient-to-r from-ucd-accent to-sky-400 opacity-0 group-hover:opacity-60 blur transition-all duration-300 group-hover:scale-110" />
+
+          <button
+            onClick={handleRefresh}
+            title="Refresh current folder"
+            aria-label="Refresh current folder"
+            className="relative w-11 h-11 rounded-full bg-ucd-surface/90 backdrop-blur-xl border border-ucd-accent/40 text-ucd-accent hover:text-white hover:bg-gradient-to-r hover:from-ucd-accent hover:to-sky-400 shadow-glow flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95"
+          >
+            <RefreshCw className={`w-4 h-4 transition-transform duration-700 ${isSpinning ? 'animate-spin text-white' : 'group-hover:rotate-180'}`} />
+          </button>
+        </div>
       )}
 
       {/* Main Floating Round (+) Action Button */}
@@ -104,5 +120,3 @@ export const FloatingActionButton = ({ onOpenNewFolder }) => {
     </div>
   )
 }
-
-
