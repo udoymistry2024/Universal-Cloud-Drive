@@ -665,10 +665,42 @@ export const DriveProvider = ({ children }) => {
       return
     }
 
+    let existingFilesInFolder = []
+    try {
+      existingFilesInFolder = (await getFiles(initialFolderId)) || []
+    } catch (e) {
+      existingFilesInFolder = []
+    }
+
+    let skippedCount = 0
+
     const newItems = rawFiles.map(file => {
       const itemId = Math.random().toString(36).substring(7)
       const uploadId = Math.random().toString(36).substring(7)
       const isTooLarge = file.size > MAX_FILE_SIZE
+
+      const isAlreadyUploaded = existingFilesInFolder.some(f => f.name.toLowerCase() === file.name.toLowerCase() && !f.is_trash)
+
+      if (isAlreadyUploaded) {
+        skippedCount++
+        return {
+          id: itemId,
+          uploadId,
+          file,
+          fileName: file.name,
+          targetFolderId: initialFolderId,
+          stage: 'cloud',
+          progress: 100,
+          loaded: file.size,
+          total: file.size,
+          speed: 0,
+          etaSeconds: 0,
+          status: 'success',
+          skipped: true,
+          error: null
+        }
+      }
+
       if (isTooLarge) {
         showToast(`"${file.name}" exceeds the 2GB limit!`, 'error')
       } else {
@@ -680,20 +712,24 @@ export const DriveProvider = ({ children }) => {
         uploadId,
         file,
         fileName: file.name,
-        targetFolderId: initialFolderId, // Bound permanently to target folder ID
-        stage: 'local', // 'local' | 'cloud'
+        targetFolderId: initialFolderId,
+        stage: 'local',
         progress: 0,
         loaded: 0,
         total: file.size,
         speed: 0,
         etaSeconds: 0,
-        status: isTooLarge ? 'error' : 'queued', // queued | uploading | success | error | cancelled
+        status: isTooLarge ? 'error' : 'queued',
         error: isTooLarge ? 'Size Limit Exceeded (>2GB)' : null
       }
     })
 
     setUploadQueue(prev => [...prev, ...newItems])
-    showToast(`Added ${newItems.length} items to upload queue.`, 'success')
+    if (skippedCount > 0) {
+      showToast(`Skipped ${skippedCount} already uploaded files. Enqueued ${newItems.length - skippedCount} remaining files.`, 'success')
+    } else {
+      showToast(`Added ${newItems.length} items to upload queue.`, 'success')
+    }
   }
 
   const confirmFolderUpload = async () => {
