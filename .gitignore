@@ -34,3 +34,4 @@ logs/
 *.sqlite3
 db_backup_tracker.json
 backend/storage/
+storage/
