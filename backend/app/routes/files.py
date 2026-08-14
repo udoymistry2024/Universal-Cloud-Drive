@@ -637,6 +637,10 @@ async def stream_media_file(
     }
 
     range_header = request.headers.get("range")
+    offset_bytes = 0
+    limit_bytes = None
+    status_code = 200
+
     if range_header and range_header.startswith("bytes=") and file_size > 0:
         try:
             bytes_range = range_header.replace("bytes=", "").split("-")
@@ -645,23 +649,22 @@ async def stream_media_file(
             if start < file_size:
                 end = min(end, file_size - 1)
                 content_length = (end - start) + 1
+                offset_bytes = start
+                limit_bytes = content_length
+                status_code = 206
                 headers["Content-Range"] = f"bytes {start}-{end}/{file_size}"
                 headers["Content-Length"] = str(content_length)
-                return StreamingResponse(
-                    stream_gen,
-                    status_code=206,
-                    media_type=mime_type,
-                    headers=headers
-                )
         except Exception as r_err:
             logger.warning(f"[STREAM] Range header parse error: {r_err}")
 
-    if file_size > 0:
+    if status_code == 200 and file_size > 0:
         headers["Content-Length"] = str(file_size)
+
+    stream_gen = telegram_service.download_file_stream(tg_msg_id, offset_bytes=offset_bytes, limit_bytes=limit_bytes)
 
     return StreamingResponse(
         stream_gen,
-        status_code=200,
+        status_code=status_code,
         media_type=mime_type,
         headers=headers
     )
@@ -706,8 +709,8 @@ async def get_file_thumbnail(
             if os.path.exists(temp_download_path) and os.path.getsize(temp_download_path) > 0:
                 generate_local_thumbnail(temp_download_path, file_id, mime, file_rec["name"])
         elif mime.startswith("video/"):
-            # Download up to 10MB chunk for video frame extraction
-            await telegram_service.download_thumbnail_fast(tg_msg_id, temp_download_path, max_partial_bytes=10*1024*1024)
+            # Ultra-fast 1.5MB partial chunk download (or 10ms native Telegram thumb)
+            await telegram_service.download_thumbnail_fast(tg_msg_id, temp_download_path, max_partial_bytes=1536*1024)
             if os.path.exists(temp_download_path) and os.path.getsize(temp_download_path) > 0:
                 generate_local_thumbnail(temp_download_path, file_id, mime, file_rec["name"])
 

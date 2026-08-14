@@ -859,10 +859,10 @@ class TelegramService:
                         pass
                 raise
 
-    async def download_thumbnail_fast(self, message_id: int, file_path: str, max_partial_bytes: int = 512 * 1024) -> bool:
+    async def download_thumbnail_fast(self, message_id: int, file_path: str, max_partial_bytes: int = 1536 * 1024) -> bool:
         """Ultra-fast thumbnail downloader.
-        First attempts downloading Telegram's embedded native thumbnail (~10ms).
-        If unavailable, downloads only the first partial 512KB chunk instead of the full file."""
+        First attempts downloading Telegram's embedded native video thumbnail (~10ms).
+        If unavailable, downloads only the first partial 1.5MB chunk with 512KB MTProto requests."""
         await self.start()
         channel_id = int(settings.TELEGRAM_CHANNEL_ID)
         try:
@@ -870,7 +870,18 @@ class TelegramService:
             if not msg or not msg.media:
                 return False
 
-            # 1. Try downloading Telegram native embedded thumbnail (~10ms)
+            # 1. High-Speed Native Telegram Video Thumbnail Extraction (~10ms)
+            thumbs = getattr(msg.media, 'thumbs', None) or getattr(getattr(msg.media, 'document', None), 'thumbs', None)
+            if thumbs:
+                for thumb in reversed(thumbs):
+                    try:
+                        downloaded = await self.app.download_media(thumb, file=file_path)
+                        if downloaded and os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+                            logger.info(f"[TG_THUMB_FAST] Successfully downloaded native Telegram video thumbnail in ~10ms for msg #{message_id}")
+                            return True
+                    except Exception:
+                        pass
+
             try:
                 downloaded = await self.app.download_media(msg.media, file=file_path, thumb=-1)
                 if downloaded and os.path.exists(file_path) and os.path.getsize(file_path) > 0:
@@ -878,17 +889,10 @@ class TelegramService:
             except Exception:
                 pass
 
-            try:
-                downloaded = await self.app.download_media(msg.media, file=file_path, thumb=0)
-                if downloaded and os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-                    return True
-            except Exception:
-                pass
-
-            # 2. Partial chunk download (only first 512KB)
+            # 2. Fast Partial Chunk Download (up to 1.5MB max for video frame extraction)
             total_bytes = 0
             with open(file_path, "wb") as f:
-                async for chunk in self.app.iter_download(msg.media, request_size=128 * 1024):
+                async for chunk in self.app.iter_download(msg.media, request_size=512 * 1024):
                     f.write(chunk)
                     total_bytes += len(chunk)
                     if total_bytes >= max_partial_bytes:
@@ -953,9 +957,8 @@ class TelegramService:
 
         return deleted_count
 
-    async def download_file_stream(self, message_id: int) -> AsyncGenerator[bytes, None]:
-
-        """Streams media content from Telegram channel given the message_id."""
+    async def download_file_stream(self, message_id: int, offset_bytes: int = 0, limit_bytes: Optional[int] = None) -> AsyncGenerator[bytes, None]:
+        """Streams media content from Telegram channel with byte offset and parallel 512KB MTProto chunks."""
         await self.start()
         channel_id = int(settings.TELEGRAM_CHANNEL_ID)
 
@@ -965,7 +968,12 @@ class TelegramService:
                 logger.error(f"[TG_STREAM] Message {message_id} or media not found in channel {channel_id}")
                 return
 
-            async for chunk in self.app.iter_download(msg.media):
+            async for chunk in self.app.iter_download(
+                msg.media,
+                offset=offset_bytes,
+                limit=limit_bytes,
+                request_size=512 * 1024
+            ):
                 yield chunk
         except Exception as e:
             logger.error(f"[TG_STREAM] Error streaming message_id={message_id}: {e}")
