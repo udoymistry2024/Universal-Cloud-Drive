@@ -86,29 +86,39 @@ export const Navbar = ({ onToggleSidebar, sidebarOpen, onOpenDeleteAccount }) =>
         <div className="relative" ref={userMenuRef}>
           <button
             onClick={() => setShowUserMenu((v) => !v)}
-            className="w-8 h-8 rounded-full bg-gradient-to-br from-ucd-accent to-ucd-royal text-white flex items-center justify-center font-bold text-sm shadow-glow-btn hover:opacity-90 transition-all"
+            className="group relative p-0.5 rounded-full bg-gradient-to-tr from-cyan-400 via-sky-400 to-blue-600 hover:from-cyan-300 hover:to-blue-500 shadow-glow hover:shadow-glow-lg transition-all duration-300 transform active:scale-95 cursor-pointer"
+            title={`Account: @${user?.telegram_username || 'User'}`}
           >
-            {user?.telegram_username?.charAt(0).toUpperCase() || <User className="w-4 h-4" />}
+            <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-cyan-400/40 text-cyan-400 flex items-center justify-center font-black text-xs md:text-sm tracking-wider shadow-inner group-hover:text-white transition-colors">
+              {user?.telegram_username?.charAt(0).toUpperCase() || <User className="w-4 h-4 text-cyan-400" />}
+            </div>
+            {/* Active Status Indicator Dot */}
+            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 border-2 border-slate-950 rounded-full shadow-sm" />
           </button>
 
           {showUserMenu && (
-            <div className="absolute right-0 mt-2 w-60 bg-ucd-surface border border-ucd-border rounded-2xl shadow-2xl p-2 z-50">
-              <div className="px-3 py-2 border-b border-ucd-border mb-1">
-                <p className="text-[10px] font-semibold text-ucd-dim uppercase tracking-wider">Signed in as</p>
-                <p className="text-xs text-ucd-text truncate mt-0.5">@{user?.telegram_username}</p>
+            <div className="absolute right-0 mt-2.5 w-64 bg-slate-900/95 border border-cyan-500/20 backdrop-blur-xl rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in duration-150">
+              <div className="px-3.5 py-2.5 border-b border-ucd-border/60 mb-1 flex items-center space-x-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white font-bold text-sm flex items-center justify-center shadow-glow shrink-0">
+                  {user?.telegram_username?.charAt(0).toUpperCase() || 'U'}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-semibold text-ucd-accent uppercase tracking-wider">Signed in as</p>
+                  <p className="text-xs font-bold text-white truncate mt-0.5">@{user?.telegram_username || 'User'}</p>
+                </div>
               </div>
 
               <button
                 onClick={() => { signOut(); setShowUserMenu(false) }}
-                className="w-full flex items-center space-x-2 px-3 py-2 text-xs text-ucd-muted hover:text-ucd-text hover:bg-ucd-hover rounded-xl transition-colors font-medium"
+                className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs text-ucd-muted hover:text-white hover:bg-slate-800/80 rounded-xl transition-colors font-semibold"
               >
-                <LogOut className="w-3.5 h-3.5" />
+                <LogOut className="w-3.5 h-3.5 text-sky-400" />
                 <span>Sign Out</span>
               </button>
 
               <button
                 onClick={() => { onOpenDeleteAccount?.(); setShowUserMenu(false) }}
-                className="w-full flex items-center space-x-2 px-3 py-2 text-xs text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors font-medium"
+                className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors font-semibold border-t border-ucd-border/40 mt-1 pt-2"
               >
                 <Trash2 className="w-3.5 h-3.5 text-rose-400" />
                 <span>Delete Account</span>
