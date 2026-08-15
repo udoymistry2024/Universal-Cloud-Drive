@@ -204,17 +204,8 @@ async def resilience_health_check():
     await resilience_manager.check_and_recover()
 
 
-async def scheduled_database_backup():
-    """
-    Periodic database backup to Telegram channel (every 12 hours).
-    Creates a full JSON snapshot of all DataForge PostgreSQL tables and uploads to Telegram.
-    """
-    from app.db_resilience import resilience_manager
-    await resilience_manager.create_and_upload_backup()
-
-
 def start_cleanup_scheduler():
-    """Register all scheduled jobs: health check, backup, trash cleanup, inactivity cleanup."""
+    """Register all scheduled jobs: health check, trash cleanup, inactivity cleanup."""
     # 25-Minute DataForge PostgreSQL Health Check
     scheduler.add_job(
         resilience_health_check,
@@ -222,16 +213,6 @@ def start_cleanup_scheduler():
         minutes=25,
         id="resilience_health_check_job",
         replace_existing=True
-    )
-
-    # 12-Hour Automatic Database Backup to Telegram Channel
-    scheduler.add_job(
-        scheduled_database_backup,
-        trigger="interval",
-        hours=12,
-        id="database_backup_job",
-        replace_existing=True,
-        next_run_time=None  # First backup runs on startup via resilience_manager.initialize()
     )
 
     # 30-Day Auto-Trash Removal Engine
@@ -256,6 +237,5 @@ def start_cleanup_scheduler():
 
     scheduler.start()
     print("[Health] 25-minute DataForge PostgreSQL health check activated.")
-    print("[Backup] 12-hour automatic database backup to Telegram channel activated.")
     print("[Trash Scheduler] Daily 30-day auto-trash removal engine activated successfully.")
     print("[Cleanup Scheduler] Daily 60-day inactivity cleanup job scheduled (every 24h).")

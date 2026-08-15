@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Error starting cleanup scheduler: {e}")
 
-    # Startup: Initialize DataForge PostgreSQL Health Monitor & initial backup
+    # Startup: Initialize DataForge PostgreSQL Health Monitor
     try:
         from app.db_resilience import resilience_manager
         await resilience_manager.initialize()
