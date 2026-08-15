@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { X, Download, Loader2, FileText, Image as ImageIcon, Film, Music, FileCode, File } from 'lucide-react'
 import { getFileCategory, formatBytes } from '../lib/fileUtils'
 import { getDownloadUrl } from '../lib/api'
+import { AudioPlayer } from './AudioPlayer'
 
 export const PreviewModal = ({ file, streamUrl, onClose }) => {
   const [textContent, setTextContent] = useState('')
@@ -103,11 +104,7 @@ export const PreviewModal = ({ file, streamUrl, onClose }) => {
         )}
 
         {category === 'audio' && (
-          <div className="p-6 bg-ucd-surface border border-ucd-border rounded-2xl flex flex-col items-center space-y-4 w-full max-w-sm shadow-glow-lg">
-            <div className="w-16 h-16 rounded-2xl bg-ucd-accent/10 text-ucd-accent flex items-center justify-center text-3xl border border-ucd-accent/20">🎵</div>
-            <p className="text-center font-medium text-sm text-ucd-text">{file.name}</p>
-            <audio src={streamUrl} controls autoPlay className="w-full" />
-          </div>
+          <AudioPlayer src={streamUrl} fileName={file.name} autoPlay={true} />
         )}
 
         {category === 'pdf' && (
