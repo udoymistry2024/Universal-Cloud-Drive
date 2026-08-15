@@ -41,11 +41,11 @@ export const getFileCategory = (mimeType = '', filename = '') => {
   const safeName = (filename || '').toString().toLowerCase()
   const ext = safeName.includes('.') ? safeName.split('.').pop() || '' : ''
 
-  if (safeMime.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(ext)) return 'image'
-  if (safeMime.startsWith('video/') || ['mp4', 'mkv', 'webm', 'mov', 'avi', 'wmv', 'flv', '3gp'].includes(ext)) return 'video'
-  if (safeMime.startsWith('audio/') || ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac'].includes(ext)) return 'audio'
+  if (safeMime.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'heic', 'heif', 'tiff', 'avif'].includes(ext)) return 'image'
+  if (safeMime.startsWith('video/') || ['mp4', 'mkv', 'webm', 'mov', 'avi', 'wmv', 'flv', '3gp', 'm4v', 'ts', 'ogv', 'mpg', 'mpeg'].includes(ext)) return 'video'
+  if (safeMime.startsWith('audio/') || ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac', 'opus', 'wma', 'aiff', 'alac'].includes(ext)) return 'audio'
   if (safeMime.includes('pdf') || ext === 'pdf') return 'pdf'
-  if (safeMime.includes('text') || ['txt', 'js', 'json', 'py', 'html', 'css', 'md', 'csv', 'log', 'xml'].includes(ext)) return 'text'
+  if (safeMime.includes('text') || ['txt', 'js', 'jsx', 'ts', 'tsx', 'json', 'py', 'html', 'css', 'scss', 'md', 'csv', 'log', 'xml', 'yaml', 'yml', 'sh', 'bat', 'c', 'cpp', 'h', 'java', 'sql', 'env', 'ipynb'].includes(ext)) return 'text'
   if (safeMime.includes('zip') || safeMime.includes('compressed') || ['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'iso', 'bin', 'exe', 'apk', 'dmg'].includes(ext)) return 'archive'
 
   return 'other'

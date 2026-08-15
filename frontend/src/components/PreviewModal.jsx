@@ -119,13 +119,13 @@ export const PreviewModal = ({ file, streamUrl, onClose }) => {
         )}
 
         {category === 'text' && (
-          <div className="w-full max-w-4xl h-full bg-ucd-bg border border-ucd-accent/20 rounded-xl p-4 md:p-6 overflow-y-auto font-mono text-xs text-ucd-text shadow-glow-lg">
+          <div className="w-full max-w-4xl h-full bg-ucd-bg border border-ucd-accent/20 rounded-xl p-4 md:p-6 overflow-y-auto font-mono text-xs text-ucd-text shadow-glow-lg select-text cursor-text">
             {loadingText ? (
-              <div className="flex items-center justify-center h-full text-ucd-accent">
+              <div className="flex items-center justify-center h-full text-ucd-accent select-none">
                 <Loader2 className="w-8 h-8 animate-spin text-ucd-accent" />
               </div>
             ) : (
-              <pre className="whitespace-pre-wrap font-mono leading-relaxed">{textContent}</pre>
+              <pre className="whitespace-pre-wrap font-mono leading-relaxed select-text cursor-text selection:bg-ucd-accent/40 selection:text-white">{textContent}</pre>
             )}
           </div>
         )}

@@ -721,17 +721,47 @@ async def stream_media_file(
     tg_msg_id = int(file_rec["telegram_message_id"])
     file_size = int(file_rec.get("size") or 0)
 
-    stream_gen = telegram_service.download_file_stream(tg_msg_id)
-
     guessed_type, _ = mimetypes.guess_type(file_rec["name"])
     raw_mime = file_rec.get("mime_type")
     mime_type = guessed_type if not raw_mime or raw_mime in ["application/octet-stream", "binary/octet-stream"] else raw_mime
     mime_type = mime_type or "application/octet-stream"
 
+    # Enforce precise video/audio MIME types based on file extension
+    ext = file_rec["name"].split(".")[-1].lower() if "." in file_rec["name"] else ""
+    video_mime_map = {
+        "mp4": "video/mp4",
+        "webm": "video/webm",
+        "mkv": "video/x-matroska",
+        "mov": "video/quicktime",
+        "avi": "video/x-msvideo",
+        "wmv": "video/x-ms-wmv",
+        "flv": "video/x-flv",
+        "3gp": "video/3gpp",
+        "m4v": "video/mp4",
+        "ts": "video/mp2t",
+        "ogv": "video/ogg"
+    }
+    audio_mime_map = {
+        "mp3": "audio/mpeg",
+        "wav": "audio/wav",
+        "ogg": "audio/ogg",
+        "m4a": "audio/mp4",
+        "flac": "audio/flac",
+        "aac": "audio/aac",
+        "opus": "audio/opus",
+        "wma": "audio/x-ms-wma",
+        "aiff": "audio/aiff"
+    }
+
+    if ext in video_mime_map:
+        mime_type = video_mime_map[ext]
+    elif ext in audio_mime_map:
+        mime_type = audio_mime_map[ext]
+
     headers = {
         "Content-Disposition": f"inline; filename*=UTF-8''{urllib.parse.quote(file_rec['name'])}",
         "Accept-Ranges": "bytes",
-        "Cache-Control": "no-cache, no-store, must-revalidate"
+        "Cache-Control": "public, max-age=3600"
     }
 
     range_header = request.headers.get("range")

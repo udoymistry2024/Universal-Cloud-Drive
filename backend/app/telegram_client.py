@@ -961,7 +961,7 @@ class TelegramService:
         return deleted_count
 
     async def download_file_stream(self, message_id: int, offset_bytes: int = 0, limit_bytes: Optional[int] = None) -> AsyncGenerator[bytes, None]:
-        """Streams media content from Telegram channel with byte offset and parallel 512KB MTProto chunks."""
+        """Streams media content from Telegram channel with byte offset and high-speed prefetching."""
         await self.start()
         channel_id = int(settings.TELEGRAM_CHANNEL_ID)
 
@@ -971,13 +971,40 @@ class TelegramService:
                 logger.error(f"[TG_STREAM] Message {message_id} or media not found in channel {channel_id}")
                 return
 
-            async for chunk in self.app.iter_download(
-                msg.media,
-                offset=offset_bytes,
-                limit=limit_bytes,
-                request_size=512 * 1024
-            ):
-                yield chunk
+            chunk_size = 512 * 1024  # 512KB MTProto chunk
+            queue = asyncio.Queue(maxsize=8)
+            fetch_cancelled = False
+
+            async def chunk_fetcher():
+                nonlocal fetch_cancelled
+                try:
+                    async for chunk in self.app.iter_download(
+                        msg.media,
+                        offset=offset_bytes,
+                        limit=limit_bytes,
+                        request_size=chunk_size
+                    ):
+                        if fetch_cancelled:
+                            break
+                        await queue.put(chunk)
+                except Exception as stream_err:
+                    logger.warning(f"[TG_STREAM_FETCHER] Stream loop error for msg #{message_id}: {stream_err}")
+                finally:
+                    await queue.put(None)  # Sentinel to end stream
+
+            fetch_task = asyncio.create_task(chunk_fetcher())
+
+            try:
+                while True:
+                    chunk = await queue.get()
+                    if chunk is None:
+                        break
+                    yield chunk
+            finally:
+                fetch_cancelled = True
+                if not fetch_task.done():
+                    fetch_task.cancel()
+
         except Exception as e:
             logger.error(f"[TG_STREAM] Error streaming message_id={message_id}: {e}")
             return

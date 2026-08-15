@@ -7,24 +7,21 @@
     min-height: 100vh;
     margin: 0;
     padding: 0;
-    @apply bg-[#070a13] text-ucd-text select-none;
-    user-select: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
+    @apply bg-[#070a13] text-ucd-text;
   }
 
-  /* Allow text selection inside editable input and textarea elements */
-  input, textarea {
-    user-select: text;
-    -webkit-user-select: text;
-    -moz-user-select: text;
-    -ms-user-select: text;
-  }
-
+  /* Text selection highlight styling for document previews, code blocks, and text content */
   ::selection {
-    background: transparent;
-    color: inherit;
+    background: rgba(14, 165, 233, 0.4);
+    color: #ffffff;
+  }
+
+  /* Utility class to make document previews & text selectable & copyable */
+  .selectable-text, .select-text {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
   }
 }
 
